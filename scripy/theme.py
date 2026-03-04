@@ -17,4 +17,4 @@ ERROR_COLOR = "#F87171"
 BOX = box.MINIMAL
 
 # Spinner frames
-SPINNER_FRAMES = ["▸", "▸▸", "▸▸▸"]
+SPINNER_FRAMES = [".", "..", "..."]

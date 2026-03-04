@@ -5,7 +5,7 @@ from rich.console import Console
 
 from scripy import __version__
 from scripy.config import load_config
-from scripy.theme import AMBER, MUTED, WORKING
+from scripy.theme import AMBER, MUTED, SUCCESS_COLOR, SUCCESS, WORKING
 
 console = Console()
 
@@ -29,6 +29,12 @@ def version_callback(ctx: click.Context, _param: click.Parameter, value: bool) -
 @click.option("--tui", is_flag=True, default=False, help="Launch Textual TUI.")
 @click.option("-y", "--yes", is_flag=True, default=False, help="Skip all confirmation gates.")
 @click.option(
+    "--force-tools",
+    is_flag=True,
+    default=False,
+    help="Set tool_choice=required. Use with models that support structured tool calling (e.g. llama3.1:8b).",
+)
+@click.option(
     "--version",
     is_flag=True,
     is_eager=True,
@@ -44,6 +50,7 @@ def main(
     input_file: str | None,
     tui: bool,
     yes: bool,
+    force_tools: bool,
 ) -> None:
     """scripy — generate scripts with local LLMs."""
     cfg = load_config()
@@ -54,16 +61,25 @@ def main(
     if lang:
         cfg.default_lang = lang
 
-    # Stub — agent call goes here in Phase 2
     console.print(f"  [{AMBER}]{WORKING}[/{AMBER}] scripy v{__version__}")
-    console.print(f"  [{MUTED}]prompt:  {prompt}[/{MUTED}]")
-    console.print(f"  [{MUTED}]model:   {cfg.model}[/{MUTED}]")
-    console.print(f"  [{MUTED}]lang:    {lang or cfg.default_lang}[/{MUTED}]")
-    if output:
-        console.print(f"  [{MUTED}]output:  {output}[/{MUTED}]")
-    if input_file:
-        console.print(f"  [{MUTED}]input:   {input_file}[/{MUTED}]")
+
     if tui:
-        console.print(f"  [{MUTED}]mode:    tui[/{MUTED}]")
-    if yes:
-        console.print(f"  [{MUTED}]gates:   bypassed[/{MUTED}]")
+        # Phase 3
+        console.print(f"  [{MUTED}]~ TUI not yet implemented — falling back to headless[/{MUTED}]")
+
+    from scripy.agent import Agent
+
+    try:
+        result = Agent(cfg, prompt, output, lang, input_file, yes, force_tools).run()
+    except KeyboardInterrupt:
+        console.print(f"\n  [{MUTED}]~ aborted[/{MUTED}]")
+        return
+
+    if result.path:
+        size = result.path.stat().st_size
+        elapsed = f"{result.elapsed:.1f}s"
+        console.print(
+            f"  [{SUCCESS_COLOR}]{SUCCESS}[/{SUCCESS_COLOR}]"
+            f" wrote [bold]{result.path}[/bold]"
+            f"  [{MUTED}]{size}B  {elapsed}[/{MUTED}]"
+        )
