@@ -53,7 +53,7 @@ class Agent:
         self.lang = lang or cfg.default_lang
         self.input_file = input_file
         self.yes = yes
-        self.force_tools = force_tools
+        self.force_tools = force_tools or cfg.force_tools
         self.always_run = yes
         self.reporter: Reporter = reporter or RichReporter()
         self.gate_provider: GateProvider = gate_provider or StdinGateProvider()
@@ -354,6 +354,30 @@ class Agent:
 # ------------------------------------------------------------------
 
 
+def _normalize_json_newlines(text: str) -> str:
+    """Escape bare newlines inside JSON string values so json.loads can parse them."""
+    result: list[str] = []
+    in_string = False
+    i = 0
+    while i < len(text):
+        ch = text[i]
+        if ch == "\\" and in_string and i + 1 < len(text):
+            result.append(ch)
+            result.append(text[i + 1])
+            i += 2
+        elif ch == '"':
+            in_string = not in_string
+            result.append(ch)
+            i += 1
+        elif ch == "\n" and in_string:
+            result.append("\\n")
+            i += 1
+        else:
+            result.append(ch)
+            i += 1
+    return "".join(result)
+
+
 def _parse_inline_tool_call(content: str) -> dict | None:
     """
     Detect an inline JSON tool call embedded in plain-text model output.
@@ -362,11 +386,11 @@ def _parse_inline_tool_call(content: str) -> dict | None:
     structured tool_calls field and instead append a bare JSON object like:
         {"name": "write_file", "arguments": {"path": ..., "content": ...}}
 
-    Returns the parsed call dict on success, None otherwise.
-    Reuses the same last-line heuristic as _strip_trailing_tool_call_json
-    so both functions stay in sync.
+    Handles both single-line blobs and multi-line blobs where the content
+    field contains raw newlines (technically invalid JSON).
     """
     import json
+    import re
 
     lines = content.split("\n")
     last_idx = len(lines) - 1
@@ -376,6 +400,7 @@ def _parse_inline_tool_call(content: str) -> dict | None:
     if last_idx < 0:
         return None
 
+    # Fast path: single-line blob on the last non-empty line.
     last_line = lines[last_idx].strip()
     if last_line.startswith("{") and '"name"' in last_line:
         try:
@@ -384,6 +409,32 @@ def _parse_inline_tool_call(content: str) -> dict | None:
                 return obj
         except json.JSONDecodeError:
             pass
+
+    # Slow path: multi-line blob (content field contains raw newlines).
+    # Scan backward to find the opening {"name": line.
+    for i in range(last_idx, max(last_idx - 100, -1), -1):
+        if not (lines[i].strip().startswith('{"name"') or lines[i].strip().startswith('{ "name"')):
+            continue
+        blob = "\n".join(lines[i : last_idx + 1])
+        if '"arguments"' not in blob:
+            break
+        # Try json.loads with newlines normalised.
+        try:
+            obj = json.loads(_normalize_json_newlines(blob))
+            if isinstance(obj, dict) and "name" in obj and "arguments" in obj:
+                return obj
+        except json.JSONDecodeError:
+            pass
+        # Regex fallback for blobs with unescaped quotes in string values.
+        name_match = re.search(r'"name"\s*:\s*"([^"]+)"', blob)
+        if name_match:
+            args: dict = {}
+            for m in re.finditer(r'"(\w+)"\s*:\s*"([^"]*)"', blob):
+                key, val = m.group(1), m.group(2)
+                if key != "name":
+                    args[key] = val
+            return {"name": name_match.group(1), "arguments": args}
+        break
 
     return None
 
@@ -465,6 +516,16 @@ def _strip_trailing_tool_call_json(content: str) -> str:
                 return "\n".join(lines[:last_idx]).rstrip()
         except json.JSONDecodeError:
             pass
+
+    # Slow path: multi-line blob where the content field contains raw newlines.
+    # Scan backward to find the opening {"name": line.
+    for i in range(last_idx, max(last_idx - 100, -1), -1):
+        stripped_i = lines[i].strip()
+        if stripped_i.startswith('{"name"') or stripped_i.startswith('{ "name"'):
+            blob = "\n".join(lines[i : last_idx + 1])
+            if '"arguments"' in blob:
+                return "\n".join(lines[:i]).rstrip()
+            break
 
     return content
 

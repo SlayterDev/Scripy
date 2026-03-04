@@ -11,8 +11,10 @@ Rules — follow exactly:
 - Scripts must be self-contained unless the user explicitly requests external dependencies
 - Call ONE tool at a time
 - When the script is complete and correct, call write_file to save it
+- NEVER include the write_file call inside the script body itself — the script must be runnable standalone
 - If you want to validate the script before saving, call run_script first
 - Do NOT use run_script to simulate expected output — only use it to verify correctness
+- Use 2 spaces for indentation; no tabs
 """
 
 

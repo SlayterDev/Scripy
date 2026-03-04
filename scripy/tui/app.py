@@ -251,12 +251,11 @@ class GateBar(Widget):
         if self._state == "generating":
             frame = SPINNER_FRAMES[self._frame % len(SPINNER_FRAMES)]
             label = (
-                f"  iteration {self._iteration + 1}/{self._max_iter}"
+                f" (iteration {self._iteration + 1}/{self._max_iter})"
                 if self._iteration > 0
                 else ""
             )
-            t.append(f"  generating{frame}{label}", style=MUTED)
-
+            t.append(f"  generating{label}{frame}", style=MUTED)
         elif self._state == "run":
             t.append(
                 f"  iteration {self._iteration + 1}/{self._max_iter}   ",

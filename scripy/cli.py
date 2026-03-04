@@ -23,7 +23,7 @@ def version_callback(ctx: click.Context, _param: click.Parameter, value: bool) -
 @click.command()
 @click.option("-p", "--prompt", required=True, help="What script to generate.")
 @click.option("-o", "--output", default=None, help="Output file path.")
-@click.option("--lang", default=None, help="Language override (python, bash, etc.).")
+@click.option("-l", "--lang", default=None, help="Language override (python, bash, etc.).")
 @click.option("--model", default=None, help="Model name override.")
 @click.option("--input", "input_file", default=None, help="Existing script to modify.")
 @click.option("--tui", is_flag=True, default=False, help="Launch Textual TUI.")

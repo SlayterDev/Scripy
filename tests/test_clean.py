@@ -52,7 +52,7 @@ class TestParseInlineToolCall:
 # _strip_trailing_tool_call_json
 # ---------------------------------------------------------------------------
 
-TOOL_CALL_JSON = '{"name": "write_file", "arguments": {"path": "hello.py", "content": "..."}}'
+TOOL_CALL_JSON = '{"name": "write_file", "arguments": {"path": "trim_filenames.sh", "content": "#!/usr/bin/env bash\n\n# Trim file names to a maximum length of 10 characters\nfor fi    le in *; do\n    if [ \\${#file} -gt 10 ]; then\n        mv \"\$file\" \"\\${file:0:10}\"\n    fi\ndone"}}'
 RUN_TOOL_CALL_JSON = '{"name": "run_script", "arguments": {"code": "...", "interpreter": "python3"}}'
 
 HELLO = '#!/usr/bin/env python3\n\n# hello.py\nprint("Hello, World!")'

@@ -12,6 +12,7 @@ class Config:
     api_key: str = "ollama"
     temperature: float = 0.2
     max_tokens: int = 2048
+    force_tools: bool = True
     max_iterations: int = 3
     default_lang: str = "python"
     sandbox_timeout: int = 10
@@ -39,6 +40,8 @@ def load_config() -> Config:
         if "max_tokens" in model_section:
             config.max_tokens = model_section["max_tokens"]
 
+        if "force_tools" in agent_section:
+            config.force_tools = agent_section["force_tools"]
         if "max_iterations" in agent_section:
             config.max_iterations = agent_section["max_iterations"]
         if "default_lang" in agent_section:

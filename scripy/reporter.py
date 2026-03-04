@@ -51,7 +51,7 @@ class RichReporter:
             self.console.print(Syntax("".join(lines), "diff", theme="monokai"))
 
     def on_generating_start(self, iteration: int, max_iter: int) -> None:
-        iter_label = f"  iteration {iteration + 1}/{max_iter}" if iteration > 0 else ""
+        iter_label = f" (iteration {iteration + 1}/{max_iter})" if iteration > 0 else ""
         self._stop = threading.Event()
         stop = self._stop
 
@@ -62,7 +62,7 @@ class RichReporter:
                     frame = SPINNER_FRAMES[idx % len(SPINNER_FRAMES)]
                     live.update(
                         Text(
-                            f"  {WORKING} generating{frame}{iter_label}",
+                            f"  {WORKING} generating{iter_label}{frame}",
                             style=f"bold {AMBER}",
                         )
                     )
