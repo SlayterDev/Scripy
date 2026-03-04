@@ -61,11 +61,14 @@ def main(
     if lang:
         cfg.default_lang = lang
 
-    console.print(f"  [{AMBER}]{WORKING}[/{AMBER}] scripy v{__version__}")
-
     if tui:
-        # Phase 3
-        console.print(f"  [{MUTED}]~ TUI not yet implemented — falling back to headless[/{MUTED}]")
+        from scripy.tui.app import ScripyApp
+
+        app = ScripyApp(cfg, prompt, output, lang, input_file, yes, force_tools)
+        app.run()
+        return
+
+    console.print(f"  [{AMBER}]{WORKING}[/{AMBER}] scripy v{__version__}")
 
     from scripy.agent import Agent
 

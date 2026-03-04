@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import Protocol
 
 from rich.console import Console
 
@@ -13,8 +14,82 @@ from scripy.theme import AMBER, MUTED, PROMPT
 console = Console()
 
 
+class GateProvider(Protocol):
+    def run_gate(
+        self,
+        code: str,
+        yes: bool,
+        always_run: bool,
+        *,
+        iteration: int = 0,
+        max_iter: int = 3,
+    ) -> tuple[bool, bool, str]: ...
+
+    def write_gate(self, path: str, yes: bool) -> bool: ...
+
+
+class StdinGateProvider:
+    """Headless confirmation gates — reads single keystrokes from stdin."""
+
+    def run_gate(
+        self,
+        code: str,
+        yes: bool,
+        always_run: bool,
+        *,
+        iteration: int = 0,
+        max_iter: int = 3,
+    ) -> tuple[bool, bool, str]:
+        if yes or always_run:
+            return True, always_run, code
+
+        current_code = code
+        while True:
+            console.print(
+                f"  [{AMBER}]{PROMPT}[/{AMBER}]"
+                f" [{MUTED}]run script to validate?[/{MUTED}]"
+                f" [{MUTED}][[bold]y[/bold]/n/e/v/a] ›[/{MUTED}] ",
+                end="",
+            )
+            key = _getch().lower()
+            console.print(key)
+
+            if key == "y":
+                return True, False, current_code
+            elif key == "n":
+                return False, False, current_code
+            elif key == "a":
+                return True, True, current_code
+            elif key == "v":
+                console.print(current_code)
+            elif key == "e":
+                current_code = _open_in_editor(current_code)
+            elif key in ("\x03", "q"):
+                raise KeyboardInterrupt
+
+    def write_gate(self, path: str, yes: bool) -> bool:
+        if yes:
+            return True
+
+        console.print(
+            f"  [{AMBER}]{PROMPT}[/{AMBER}]"
+            f" [{MUTED}]write to disk as[/{MUTED}]"
+            f" [bold]{path}[/bold]"
+            f"[{MUTED}]?[/{MUTED}]"
+            f" [{MUTED}][[bold]y[/bold]/n] ›[/{MUTED}] ",
+            end="",
+        )
+        key = _getch().lower()
+        console.print(key)
+        return key == "y"
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
 def _getch() -> str:
-    """Read one character from stdin without requiring Enter."""
     import termios
     import tty
 
@@ -27,66 +102,7 @@ def _getch() -> str:
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
 
 
-def run_gate(
-    code: str,
-    yes: bool,
-    always_run: bool,
-) -> tuple[bool, bool, str]:
-    """
-    Ask whether to sandbox-run the script.
-
-    Returns (proceed, always_run_updated, code_to_run).
-    `code_to_run` may differ from input if user chose `e` (editor).
-    """
-    if yes or always_run:
-        return True, always_run, code
-
-    current_code = code
-
-    while True:
-        console.print(
-            f"  [{AMBER}]{PROMPT}[/{AMBER}]"
-            f" [{MUTED}]run script to validate?[/{MUTED}]"
-            f" [{MUTED}][[bold]y[/bold]/n/e/v/a] ›[/{MUTED}] ",
-            end="",
-        )
-        key = _getch().lower()
-        console.print(key)
-
-        if key == "y":
-            return True, False, current_code
-        elif key == "n":
-            return False, False, current_code
-        elif key == "a":
-            return True, True, current_code
-        elif key == "v":
-            console.print(current_code)
-        elif key == "e":
-            current_code = _open_in_editor(current_code)
-        elif key in ("\x03", "q"):
-            raise KeyboardInterrupt
-
-
-def write_gate(path: str, yes: bool) -> bool:
-    """Ask whether to write the file. Returns True if approved."""
-    if yes:
-        return True
-
-    console.print(
-        f"  [{AMBER}]{PROMPT}[/{AMBER}]"
-        f" [{MUTED}]write to disk as[/{MUTED}]"
-        f" [bold]{path}[/bold]"
-        f"[{MUTED}]?[/{MUTED}]"
-        f" [{MUTED}][[bold]y[/bold]/n] ›[/{MUTED}] ",
-        end="",
-    )
-    key = _getch().lower()
-    console.print(key)
-    return key == "y"
-
-
 def _open_in_editor(code: str) -> str:
-    """Open code in $EDITOR and return the (possibly modified) content."""
     editor = os.environ.get("EDITOR", "vi")
     with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as f:
         f.write(code)
