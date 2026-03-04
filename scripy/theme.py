@@ -19,4 +19,4 @@ CODE_THEME = "dracula"
 BOX = box.MINIMAL
 
 # Spinner frames
-SPINNER_FRAMES = [".", "..", "..."]
+SPINNER_FRAMES = ["⚬⚬⚬⚬", "•⚬⚬⚬", "••⚬⚬", "⚬••⚬", "⚬⚬••", "⚬⚬⚬•", "⚬⚬⚬⚬"]

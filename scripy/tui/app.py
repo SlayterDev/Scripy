@@ -257,7 +257,7 @@ class GateBar(Widget):
                 if self._iteration > 0
                 else ""
             )
-            t.append(f"  generating{label}{frame}", style=MUTED)
+            t.append(f"  generating{label} {frame}", style=MUTED)
         elif self._state == "run":
             t.append(
                 f"  iteration {self._iteration + 1}/{self._max_iter}   ",

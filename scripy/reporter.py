@@ -62,7 +62,7 @@ class RichReporter:
                     frame = SPINNER_FRAMES[idx % len(SPINNER_FRAMES)]
                     live.update(
                         Text(
-                            f"  {WORKING} generating{iter_label}{frame}",
+                            f"  {WORKING} generating{iter_label} {frame}",
                             style=f"bold {AMBER}",
                         )
                     )
