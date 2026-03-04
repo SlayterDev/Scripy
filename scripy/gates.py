@@ -25,7 +25,7 @@ class GateProvider(Protocol):
         max_iter: int = 3,
     ) -> tuple[bool, bool, str]: ...
 
-    def write_gate(self, path: str, yes: bool) -> bool: ...
+    def write_gate(self, path: str, yes: bool, always_write: bool = False, content: str = "") -> tuple[bool, bool]: ...
 
 
 class StdinGateProvider:
@@ -67,21 +67,33 @@ class StdinGateProvider:
             elif key in ("\x03", "q"):
                 raise KeyboardInterrupt
 
-    def write_gate(self, path: str, yes: bool) -> bool:
-        if yes:
-            return True
+    def write_gate(self, path: str, yes: bool, always_write: bool = False, content: str = "") -> tuple[bool, bool]:
+        if yes or always_write:
+            return True, always_write
 
-        console.print(
-            f"  [{AMBER}]{PROMPT}[/{AMBER}]"
-            f" [{MUTED}]write to disk as[/{MUTED}]"
-            f" [bold]{path}[/bold]"
-            f"[{MUTED}]?[/{MUTED}]"
-            f" [{MUTED}][[bold]y[/bold]/n] ›[/{MUTED}] ",
-            end="",
-        )
-        key = _getch().lower()
-        console.print(key)
-        return key == "y"
+        while True:
+            console.print(
+                f"  [{AMBER}]{PROMPT}[/{AMBER}]"
+                f" [{MUTED}]write to disk as[/{MUTED}]"
+                f" [bold]{path}[/bold]"
+                f"[{MUTED}]?[/{MUTED}]"
+                f" [{MUTED}][[bold]y[/bold]/n/v/a] ›[/{MUTED}] ",
+                end="",
+            )
+            key = _getch().lower()
+            console.print(key)
+
+            if key == "y":
+                return True, False
+            elif key == "n":
+                return False, False
+            elif key == "a":
+                return True, True
+            elif key == "v":
+                if content:
+                    console.print(content)
+            elif key in ("\x03", "q"):
+                raise KeyboardInterrupt
 
 
 # ---------------------------------------------------------------------------

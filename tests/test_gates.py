@@ -38,6 +38,20 @@ class TestRunGateFastPaths:
 
 
 class TestWriteGateFastPaths:
-    def test_yes_flag_returns_true(self):
+    def test_yes_flag_returns_tuple(self):
         gp = StdinGateProvider()
-        assert gp.write_gate("out.py", yes=True) is True
+        approved, always_write = gp.write_gate("out.py", yes=True)
+        assert approved is True
+        assert always_write is False
+
+    def test_always_write_bypasses_gate(self):
+        gp = StdinGateProvider()
+        approved, always_write = gp.write_gate("out.py", yes=False, always_write=True)
+        assert approved is True
+        assert always_write is True
+
+    def test_yes_and_always_write_both_set(self):
+        gp = StdinGateProvider()
+        approved, always_write = gp.write_gate("out.py", yes=True, always_write=True)
+        assert approved is True
+        assert always_write is True

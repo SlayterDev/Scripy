@@ -28,8 +28,8 @@ class YesGateProvider:
     def run_gate(self, code, yes, always_run, *, iteration=0, max_iter=3):
         return True, True, code
 
-    def write_gate(self, path, yes):
-        return True
+    def write_gate(self, path, yes, always_write=False, content=""):
+        return True, False
 
 
 def make_cfg(**overrides):

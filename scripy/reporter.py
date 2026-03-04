@@ -9,7 +9,7 @@ from rich.live import Live
 from rich.syntax import Syntax
 from rich.text import Text
 
-from scripy.theme import AMBER, MUTED, SPINNER_FRAMES, WORKING
+from scripy.theme import AMBER, CODE_THEME, MUTED, SPINNER_FRAMES, WORKING
 
 
 class Reporter(Protocol):
@@ -33,7 +33,7 @@ class RichReporter:
         self.console.print(f"  [{color}]{glyph}[/{color}] [{MUTED}]{message}[/{MUTED}]")
 
     def print_code(self, code: str, lang: str) -> None:
-        self.console.print(Syntax(code, lang, theme="monokai"))
+        self.console.print(Syntax(code, lang, theme=CODE_THEME))
 
     def update_script(self, code: str, lang: str) -> None:
         pass  # no-op in headless
@@ -48,7 +48,7 @@ class RichReporter:
             )
         )
         if lines:
-            self.console.print(Syntax("".join(lines), "diff", theme="monokai"))
+            self.console.print(Syntax("".join(lines), "diff", theme=CODE_THEME))
 
     def on_generating_start(self, iteration: int, max_iter: int) -> None:
         iter_label = f" (iteration {iteration + 1}/{max_iter})" if iteration > 0 else ""

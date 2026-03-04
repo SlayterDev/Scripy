@@ -55,6 +55,7 @@ class Agent:
         self.yes = yes
         self.force_tools = force_tools or cfg.force_tools
         self.always_run = yes
+        self._always_write = yes
         self.reporter: Reporter = reporter or RichReporter()
         self.gate_provider: GateProvider = gate_provider or StdinGateProvider()
         self.client = OpenAI(base_url=cfg.base_url, api_key=cfg.api_key)
@@ -157,7 +158,10 @@ class Agent:
 
                     out_path = self._resolve_output(None)
                     self._elapsed = time.monotonic() - self._start
-                    if self.gate_provider.write_gate(out_path, self.yes):
+                    approved, self._always_write = self.gate_provider.write_gate(
+                        out_path, self.yes, self._always_write, code
+                    )
+                    if approved:
                         Path(out_path).write_text(code)
                         self._final_path = Path(out_path)
                     else:
@@ -254,7 +258,10 @@ class Agent:
             return f"Syntax error — fix it before calling write_file again:\n{err}"
 
         self._elapsed = time.monotonic() - self._start
-        if self.gate_provider.write_gate(out_path, self.yes):
+        approved, self._always_write = self.gate_provider.write_gate(
+            out_path, self.yes, self._always_write, content
+        )
+        if approved:
             Path(out_path).write_text(content)
             self._final_path = Path(out_path)
             size = self._final_path.stat().st_size

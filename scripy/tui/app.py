@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import difflib
+import os
+import subprocess
 import threading
 
 from rich.rule import Rule
@@ -20,7 +22,7 @@ from scripy.agent import Agent, RunResult
 from scripy.config import Config
 from scripy.gates import GateProvider
 from scripy.reporter import Reporter
-from scripy.theme import AMBER, ERROR_COLOR, FAILED, MUTED, PROMPT, SPINNER_FRAMES, SUCCESS, SUCCESS_COLOR, WARNING, WARNING_COLOR, WORKING
+from scripy.theme import AMBER, CODE_THEME, ERROR_COLOR, FAILED, MUTED, PROMPT, SPINNER_FRAMES, SUCCESS, SUCCESS_COLOR, WARNING, WARNING_COLOR, WORKING
 
 
 def _changed_lines(old_code: str, new_code: str) -> set[int]:
@@ -95,13 +97,13 @@ class WriteGateRequest(Message):
         super().__init__()
         self.path = path
         self._event = threading.Event()
-        self._result: bool = False
+        self._result: tuple[bool, bool] = (False, False)
 
-    def resolve(self, approved: bool) -> None:
-        self._result = approved
+    def resolve(self, approved: bool, always_write: bool = False) -> None:
+        self._result = (approved, always_write)
         self._event.set()
 
-    def wait(self) -> bool:
+    def wait(self) -> tuple[bool, bool]:
         self._event.wait()
         return self._result
 
@@ -176,9 +178,9 @@ class TuiGateProvider:
         self._app.call_from_thread(self._app.post_message, msg)
         return msg.wait()
 
-    def write_gate(self, path: str, yes: bool) -> bool:
-        if yes:
-            return True
+    def write_gate(self, path: str, yes: bool, always_write: bool = False, content: str = "") -> tuple[bool, bool]:
+        if yes or always_write or self._app._always_write:
+            return True, True
         msg = WriteGateRequest(path)
         self._app.call_from_thread(self._app.post_message, msg)
         return msg.wait()
@@ -267,12 +269,12 @@ class GateBar(Widget):
 
         elif self._state == "write":
             t.append(f"  write {self._path}?   ", style=MUTED)
-            for key, label in [("y", "write"), ("n", "print to stdout")]:
+            for key, label in [("y", "write"), ("n", "print to stdout"), ("a", "always")]:
                 t.append(f"[{key}]", style=f"bold {AMBER}")
                 t.append(f" {label}  ", style=MUTED)
 
         elif self._state == "done":
-            for key, label in [("r", "refine"), ("q", "quit")]:
+            for key, label in [("r", "refine"), ("e", "edit"), ("q", "quit")]:
                 t.append(f"[{key}]", style=f"bold {AMBER}")
                 t.append(f" {label}  ", style=MUTED)
 
@@ -351,6 +353,7 @@ class ScripyApp(App):
         self._result: RunResult | None = None
         self._is_refining: bool = False
         self._baseline_code: str = ""
+        self._always_write: bool = False
 
     def compose(self) -> ComposeResult:
         yield Static(
@@ -422,13 +425,13 @@ class ScripyApp(App):
                 Syntax(
                     msg.code,
                     msg.lang,
-                    theme="monokai",
+                    theme=CODE_THEME,
                     line_numbers=bool(changed),
                     highlight_lines=changed or None,
                 )
             )
         else:
-            pane.update(Syntax(msg.code, msg.lang, theme="monokai", line_numbers=False))
+            pane.update(Syntax(msg.code, msg.lang, theme=CODE_THEME, line_numbers=False))
 
     def on_diff_ready(self, msg: DiffReady) -> None:
         lines = list(
@@ -441,7 +444,7 @@ class ScripyApp(App):
         )
         if lines:
             log = self.query_one("#log-pane", RichLog)
-            log.write(Syntax("".join(lines), "diff", theme="monokai"))
+            log.write(Syntax("".join(lines), "diff", theme=CODE_THEME))
 
     def on_generating_started(self, msg: GeneratingStarted) -> None:
         self.query_one(GateBar).show_generating(msg.iteration, msg.max_iter)
@@ -489,7 +492,7 @@ class ScripyApp(App):
     # Key handling — routes to active gate when one is pending
     # ------------------------------------------------------------------
 
-    def on_key(self, event: events.Key) -> None:
+    async def on_key(self, event: events.Key) -> None:
         key = event.key.lower()
 
         # When the refine input is visible, only handle escape to cancel it.
@@ -511,6 +514,21 @@ class ScripyApp(App):
                 elif key == "q":
                     self.exit(self._result)
                     event.stop()
+                elif key == "e" and self._result and self._result.path:
+                    path = self._result.path
+                    with self.suspend():
+                        subprocess.run([os.environ.get("EDITOR", "vi"), str(path)])
+                    new_code = path.read_text()
+                    self._result = RunResult(
+                        code=new_code,
+                        path=path,
+                        elapsed=self._result.elapsed,
+                        iterations=self._result.iterations,
+                    )
+                    self.query_one("#script-pane", Static).update(
+                        Syntax(new_code, self.lang or "python", theme=CODE_THEME, line_numbers=False)
+                    )
+                    event.stop()
             return
 
         if isinstance(gate, RunGateRequest):
@@ -523,7 +541,7 @@ class ScripyApp(App):
             elif key == "v":
                 # Script pane already shows the code — echo to log for clarity
                 log = self.query_one("#log-pane", RichLog)
-                log.write(Syntax(gate.code, self.lang or "python", theme="monokai"))
+                log.write(Syntax(gate.code, self.lang or "python", theme=CODE_THEME))
             elif key == "e":
                 log = self.query_one("#log-pane", RichLog)
                 log.write(
@@ -540,6 +558,8 @@ class ScripyApp(App):
                 self._resolve_write_gate(True)
             elif key == "n":
                 self._resolve_write_gate(False)
+            elif key == "a":
+                self._resolve_write_gate(True, always_write=True)
             event.stop()
 
     def _start_refine(self) -> None:
@@ -588,9 +608,11 @@ class ScripyApp(App):
         assert isinstance(gate, RunGateRequest)
         gate.resolve(proceed, always_run, code)
 
-    def _resolve_write_gate(self, approved: bool) -> None:
+    def _resolve_write_gate(self, approved: bool, always_write: bool = False) -> None:
+        if always_write:
+            self._always_write = True
         gate = self._active_gate
         self._active_gate = None
         self.query_one(GateBar).clear()
         assert isinstance(gate, WriteGateRequest)
-        gate.resolve(approved)
+        gate.resolve(approved, always_write)
