@@ -78,3 +78,5 @@ TOOL_SCHEMAS: list[dict] = [
         },
     },
 ]
+
+TOOL_NAMES: frozenset[str] = frozenset(t["function"]["name"] for t in TOOL_SCHEMAS)

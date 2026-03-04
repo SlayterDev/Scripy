@@ -23,6 +23,17 @@ from scripy.reporter import Reporter
 from scripy.theme import AMBER, ERROR_COLOR, FAILED, MUTED, PROMPT, SPINNER_FRAMES, SUCCESS, SUCCESS_COLOR, WARNING, WARNING_COLOR, WORKING
 
 
+def _changed_lines(old_code: str, new_code: str) -> set[int]:
+    """Return 1-indexed line numbers in new_code that differ from old_code."""
+    old = old_code.splitlines()
+    new = new_code.splitlines()
+    changed: set[int] = set()
+    for tag, _i1, _i2, j1, j2 in difflib.SequenceMatcher(None, old, new).get_opcodes():
+        if tag != "equal":
+            changed.update(range(j1 + 1, j2 + 1))
+    return changed
+
+
 # ---------------------------------------------------------------------------
 # Messages  (worker thread → UI, via call_from_thread)
 # ---------------------------------------------------------------------------
@@ -406,7 +417,19 @@ class ScripyApp(App):
 
     def on_script_updated(self, msg: ScriptUpdated) -> None:
         pane = self.query_one("#script-pane", Static)
-        pane.update(Syntax(msg.code, msg.lang, theme="monokai", line_numbers=False))
+        if self._baseline_code:
+            changed = _changed_lines(self._baseline_code, msg.code)
+            pane.update(
+                Syntax(
+                    msg.code,
+                    msg.lang,
+                    theme="monokai",
+                    line_numbers=bool(changed),
+                    highlight_lines=changed or None,
+                )
+            )
+        else:
+            pane.update(Syntax(msg.code, msg.lang, theme="monokai", line_numbers=False))
 
     def on_diff_ready(self, msg: DiffReady) -> None:
         lines = list(
@@ -450,9 +473,6 @@ class ScripyApp(App):
                     (f"  {size}B  {elapsed}", MUTED),
                 )
             )
-        if self._is_refining and self._baseline_code and msg.result.code:
-            self._show_right_pane_diff(self._baseline_code, msg.result.code)
-            self._is_refining = False
         self.query_one(GateBar).show_done()
 
     def on_agent_error(self, msg: AgentError) -> None:
@@ -561,19 +581,6 @@ class ScripyApp(App):
         )
         self.prompt = new_prompt
         self.run_worker(self._agent_worker, thread=True)
-
-    def _show_right_pane_diff(self, old_code: str, new_code: str) -> None:
-        lines = list(
-            difflib.unified_diff(
-                old_code.splitlines(keepends=True),
-                new_code.splitlines(keepends=True),
-                fromfile="before",
-                tofile="after",
-            )
-        )
-        if lines:
-            pane = self.query_one("#script-pane", Static)
-            pane.update(Syntax("".join(lines), "diff", theme="monokai"))
 
     def _resolve_run_gate(self, proceed: bool, always_run: bool, code: str) -> None:
         gate = self._active_gate

@@ -6,6 +6,7 @@ from scripy.agent import (
     _clean_script_content,
     _extract_code,
     _parse_inline_tool_call,
+    _strip_trailing_function_call,
     _strip_trailing_tool_call_json,
 )
 
@@ -102,6 +103,55 @@ class TestStripTrailingToolCallJson:
 
 
 # ---------------------------------------------------------------------------
+# _strip_trailing_function_call
+# ---------------------------------------------------------------------------
+
+WRITE_FILE_MULTILINE = (
+    'write_file({\n'
+    '    "path": "hello.py",\n'
+    '    "content": "#!/usr/bin/env python3\\nprint(\\"hi\\")"\n'
+    '})'
+)
+WRITE_FILE_SINGLELINE = 'write_file({"path": "hello.py", "content": "print(\'hi\')"})'
+
+
+class TestStripTrailingFunctionCall:
+    def test_strips_multiline_write_file(self):
+        raw = f"{HELLO}\n\n{WRITE_FILE_MULTILINE}"
+        assert _strip_trailing_function_call(raw) == HELLO
+
+    def test_strips_multiline_with_trailing_blanks(self):
+        raw = f"{HELLO}\n\n{WRITE_FILE_MULTILINE}\n\n"
+        assert _strip_trailing_function_call(raw) == HELLO
+
+    def test_strips_singleline_write_file(self):
+        raw = f"{HELLO}\n\n{WRITE_FILE_SINGLELINE}"
+        assert _strip_trailing_function_call(raw) == HELLO
+
+    def test_strips_run_script_multiline(self):
+        call = 'run_script({\n    "code": "print(1)",\n    "interpreter": "python3"\n})'
+        raw = f"{HELLO}\n\n{call}"
+        assert _strip_trailing_function_call(raw) == HELLO
+
+    def test_does_not_strip_positional_arg_call(self):
+        """write_file("path", content) is a legitimate Python call — must not be stripped."""
+        script = f'{HELLO}\nwrite_file("out.py", data)'
+        assert _strip_trailing_function_call(script) == script
+
+    def test_does_not_strip_mid_script_call(self):
+        """A write_file({ call in the middle of a script must not be touched."""
+        script = (
+            '#!/usr/bin/env python3\n'
+            'write_file({"path": "a.py", "content": "x"})\n'
+            'print("done")'
+        )
+        assert _strip_trailing_function_call(script) == script
+
+    def test_clean_passthrough(self):
+        assert _strip_trailing_function_call(HELLO) == HELLO
+
+
+# ---------------------------------------------------------------------------
 # _clean_script_content
 # ---------------------------------------------------------------------------
 
@@ -140,6 +190,15 @@ class TestCleanScriptContent:
 
     def test_strips_trailing_blank_lines(self):
         raw = f"{HELLO}\n\n\n"
+        assert _clean_script_content(raw) == HELLO
+
+    def test_strips_multiline_function_call(self):
+        """Regression: multi-line write_file({...}) must be stripped."""
+        raw = f"{HELLO}\n\n{WRITE_FILE_MULTILINE}"
+        assert _clean_script_content(raw) == HELLO
+
+    def test_strips_singleline_function_call(self):
+        raw = f"{HELLO}\n\n{WRITE_FILE_SINGLELINE}"
         assert _clean_script_content(raw) == HELLO
 
 

@@ -23,8 +23,9 @@ def build_user_prompt(
 ) -> str:
     if input_content:
         return (
-            f"Modify the following {lang} script according to this instruction:\n"
-            f"{prompt}\n\n"
+            f"Modify the following {lang} script according to this instruction: {prompt}\n\n"
+            f"Important: output the COMPLETE updated script in full — do not abbreviate, "
+            f"truncate, or show only the changed sections.\n\n"
             f"Existing script:\n{input_content}"
         )
     return f"Write a {lang} script that: {prompt}"
