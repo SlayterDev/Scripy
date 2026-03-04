@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+*.egg
+
+# Claude local settings (not the checked-in CLAUDE.md)
+.claude/
+
+# Env
+.env
+
+# Editor
+.DS_Store
+.vscode/
+.idea/
+
+# Generated test scripts
+*.py.out
+*.sh.out
