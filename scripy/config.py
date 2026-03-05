@@ -11,7 +11,7 @@ class Config:
     model: str = "qwen2.5-coder:7b"
     api_key: str = "ollama"
     temperature: float = 0.2
-    max_tokens: int = 2048
+    max_tokens: int = 4096
     force_tools: bool = True
     max_iterations: int = 3
     default_lang: str = "python"

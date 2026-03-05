@@ -28,6 +28,8 @@ pip install -e .
 
 ## Quick start
 
+> **Note:** This assumes you're running Ollama on the same machine with `qwen2.5-coder:7b` installed. See [Configuration](#configuration) below for more detialed configuration steps.
+
 ```bash
 # Generate a Python script
 scripy -p "find duplicate files in a directory"
@@ -78,13 +80,14 @@ Default config works with a local Ollama instance. Override via `~/.config/scrip
 
 ```toml
 [model]
-base_url = "http://192.168.1.10:11434/v1"  # remote Ollama
-model    = "llama3.1:8b"
-api_key  = "ollama"                          # use "lm-studio" for LM Studio
+base_url    = "http://192.168.1.10:11434/v1"  # remote Ollama
+model       = "llama3.1:8b"
+api_key     = "ollama" # use "lm-studio" for LM Studio
 temperature = 0.2
-max_tokens  = 2048
+max_tokens  = 4096
 
 [agent]
+force_tools      = true
 max_iterations   = 3
 default_lang     = "python"
 sandbox_timeout  = 10
@@ -100,7 +103,9 @@ scripy --model qwen2.5-coder:7b -p "..."
 
 ## Model recommendations
 
-scripy targets models that run on consumer hardware (~4–8GB RAM).
+scripy targets models that run on small consumer hardware (~4–8GB RAM) but will obviously
+excell on more powerful machines. That being said here are some reccomendations for
+small machines.
 
 | Model | Size | Tool calling | Code quality | Notes |
 |-------|------|-------------|-------------|-------|
@@ -128,16 +133,21 @@ less reliable: the self-correction loop may not fire, and you will see:
   ~ inline tool call detected — model is not using structured tool calling
 ```
 
-For best results with qwen-coder or deepseek-coder, use `--force-tools` to
-set `tool_choice=required`. Some model/Ollama version combinations respond
-to this correctly; others may fail or produce garbled output — test with your
-setup.
+`--force-tools` (`tool_choice=required`) is **on by default**. This works well
+with native tool-calling models and is generally the right choice. If you see
+errors or garbled output — which can happen with certain qwen-coder or
+deepseek-coder builds on older Ollama versions — disable it via config:
 
-```bash
-scripy --model qwen2.5-coder:7b --force-tools -p "..."
+```toml
+# ~/.config/scripy/config.toml
+[agent]
+force_tools = false
 ```
 
-If `--force-tools` causes errors, omit it — the inline fallback will handle it.
+With `force_tools` off, scripy falls back to inline tool-call detection automatically.
+I've personally had better results using LM Studio for smaller models on small hardware
+(think M2 mac mini 8GB RAM). Sometimes using OLLama the model kept appending tool calls
+to the script output.
 
 ---
 
@@ -149,14 +159,14 @@ Usage: scripy [OPTIONS]
   scripy — generate scripts with local LLMs.
 
 Options:
-  -p, --prompt TEXT   What script to generate.  [required]
+  -p, --prompt TEXT   What script to generate.
   -o, --output TEXT   Output file path.
-  --lang TEXT         Language override (python, bash, etc.).
+  -l, --lang TEXT     Language override (python, bash, etc.).
   --model TEXT        Model name override.
   --input TEXT        Existing script to modify.
-  --tui               Launch Textual TUI.  [coming soon]
+  --tui               Launch Textual TUI.
   -y, --yes           Skip all confirmation gates.
-  --force-tools       Set tool_choice=required (native tool-calling models only).
+  --force-tools       Override config and set tool_choice=required for this run.
   --version           Show version and exit.
   --help              Show this message and exit.
 ```
@@ -173,7 +183,10 @@ Options:
 - Inline tool call detection and fallback for models that don't use the tool-calling API
 - `~/.config/scripy/config.toml` config with CLI overrides
 
-**Phase 3 — TUI** — not yet implemented (`--tui` falls back to headless)
+**Phase 3 — TUI** ✓
+
+- Textual TUI with live script preview, diff view on revision, and confirmation gates
+- Language picker (Ctrl+L), inline prompt compose, and refinement loop
 
 ---
 

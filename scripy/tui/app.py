@@ -344,11 +344,16 @@ class GateBar(Widget):
             t.append("  ", "")
             t.append("?", f"bold {AMBER}")
             t.append("  describe the script you want to build, then press Enter", style=MUTED)
+            t.append("   ", "")
+            t.append("[^l]", style=f"bold {AMBER}")
+            t.append(" set language", style=MUTED)
 
         elif self._state == "done":
             for key, label in [("r", "refine"), ("e", "edit"), ("q", "quit")]:
                 t.append(f"[{key}]", style=f"bold {AMBER}")
                 t.append(f" {label}  ", style=MUTED)
+            t.append("[^l]", style=f"bold {AMBER}")
+            t.append(" set language", style=MUTED)
 
         return t
 
