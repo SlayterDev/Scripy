@@ -20,3 +20,12 @@ BOX = box.MINIMAL
 
 # Spinner frames
 SPINNER_FRAMES = ["⚬⚬⚬⚬", "•⚬⚬⚬", "••⚬⚬", "⚬••⚬", "⚬⚬••", "⚬⚬⚬•", "⚬⚬⚬⚬"]
+
+# Supported languages: (display label, lang id)  — None id = "other" / free text
+LANGUAGES: list[tuple[str, str | None]] = [
+    ("python", "python"),
+    ("bash", "bash"),
+    ("ruby", "ruby"),
+    ("javascript", "javascript"),
+    ("other", None),
+]

@@ -22,7 +22,7 @@ from scripy.agent import Agent, RunResult
 from scripy.config import Config
 from scripy.gates import GateProvider
 from scripy.reporter import Reporter
-from scripy.theme import AMBER, CODE_THEME, ERROR_COLOR, FAILED, MUTED, PROMPT, SPINNER_FRAMES, SUCCESS, SUCCESS_COLOR, WARNING, WARNING_COLOR, WORKING
+from scripy.theme import AMBER, CODE_THEME, ERROR_COLOR, FAILED, LANGUAGES, MUTED, PROMPT, SPINNER_FRAMES, SUCCESS, SUCCESS_COLOR, WARNING, WARNING_COLOR, WORKING
 
 
 def _changed_lines(old_code: str, new_code: str) -> set[int]:
@@ -118,6 +118,69 @@ class AgentError(Message):
     def __init__(self, error: str) -> None:
         super().__init__()
         self.error = error
+
+
+class LangSelected(Message):
+    def __init__(self, lang: str | None) -> None:
+        super().__init__()
+        self.lang = lang  # None = cancelled
+
+
+# ---------------------------------------------------------------------------
+# LangPicker widget
+# ---------------------------------------------------------------------------
+
+
+class LangPicker(Widget):
+    CAN_FOCUS = True
+
+    DEFAULT_CSS = """
+    LangPicker {
+        display: none;
+        height: auto;
+        background: #0f172a;
+        padding: 1 2;
+        border-top: solid #1e293b;
+    }
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._cursor = 0
+        self._other_text = ""
+        self._other_mode = False
+
+    def reset(self, current_lang: str) -> None:
+        self._other_text = ""
+        self._other_mode = False
+        for i, (_, lang_id) in enumerate(LANGUAGES):
+            if lang_id == current_lang:
+                self._cursor = i
+                return
+        # Custom lang not in list — pre-fill "other"
+        self._cursor = len(LANGUAGES) - 1
+        self._other_text = current_lang
+
+    def render(self) -> Text:
+        t = Text(no_wrap=True)
+        for i, (display, lang_id) in enumerate(LANGUAGES):
+            is_selected = i == self._cursor
+            is_other = lang_id is None
+
+            if is_selected:
+                t.append("  > ", style=f"bold {AMBER}")
+                if is_other and self._other_mode:
+                    t.append("other: ", style=f"bold {AMBER}")
+                    t.append(self._other_text + "▌", style=f"bold {AMBER}")
+                else:
+                    t.append(display, style=f"bold {AMBER}")
+            else:
+                t.append("    ", "")
+                t.append(display, style=MUTED)
+
+            if i < len(LANGUAGES) - 1:
+                t.append("\n")
+        return t
 
 
 # ---------------------------------------------------------------------------
@@ -363,16 +426,24 @@ class ScripyApp(App):
         self._is_refining: bool = False
         self._baseline_code: str = ""
         self._always_write: bool = False
+        self._preview_code: str = ""
+        self._preview_lang: str = lang or cfg.default_lang
+        self._picker_from_input: bool = False
+
+    def _header_markup(self) -> str:
+        lang = self.lang or self.cfg.default_lang
+        return (
+            f"  {WORKING} scripy v{__version__}"
+            f"   [{MUTED}]{self.cfg.model}[/{MUTED}]"
+            f"   [{AMBER}]{lang}[/{AMBER}]"
+        )
 
     def compose(self) -> ComposeResult:
-        yield Static(
-            f"  {WORKING} scripy v{__version__}   [{MUTED}]{self.cfg.model}[/{MUTED}]",
-            id="header",
-            markup=True,
-        )
+        yield Static(self._header_markup(), id="header", markup=True)
         with Horizontal(id="main"):
             yield RichLog(id="log-pane", markup=True, highlight=True, wrap=True)
             yield Static("", id="script-pane", expand=True, markup=False)
+        yield LangPicker()
         yield GateBar()
         yield Input(placeholder="Describe your refinement…", id="refine-input")
 
@@ -430,6 +501,8 @@ class ScripyApp(App):
         )
 
     def on_script_updated(self, msg: ScriptUpdated) -> None:
+        self._preview_code = msg.code
+        self._preview_lang = msg.lang
         pane = self.query_one("#script-pane", Static)
         if self._baseline_code:
             changed = _changed_lines(self._baseline_code, msg.code)
@@ -507,9 +580,20 @@ class ScripyApp(App):
     async def on_key(self, event: events.Key) -> None:
         key = event.key.lower()
 
-        # When the refine input is visible, handle escape/q to cancel.
+        # Language picker intercepts all keys while open.
+        picker = self.query_one(LangPicker)
+        if picker.display:
+            self._handle_lang_picker_key(key, event)
+            event.stop()
+            return
+
+        # When the refine input is visible, handle escape/q to cancel, ctrl+l to pick lang.
         inp = self.query_one("#refine-input", Input)
         if inp.display:
+            if key == "ctrl+l":
+                self._show_lang_picker(from_input=True)
+                event.stop()
+                return
             if event.key == "escape" or (event.key == "q" and not self.prompt):
                 if not self.prompt:
                     # No prompt yet — escape quits entirely
@@ -518,6 +602,12 @@ class ScripyApp(App):
                     inp.display = False
                     self.query_one(GateBar).display = True
                 event.stop()
+            return
+
+        # Ctrl+L opens the language picker (only when no gate is pending).
+        if key == "ctrl+l" and self._active_gate is None:
+            self._show_lang_picker()
+            event.stop()
             return
 
         # Handle done state (no active gate).
@@ -577,6 +667,79 @@ class ScripyApp(App):
             elif key == "a":
                 self._resolve_write_gate(True, always_write=True)
             event.stop()
+
+    def _handle_lang_picker_key(self, key: str, event: events.Key) -> None:
+        picker = self.query_one(LangPicker)
+        if picker._other_mode:
+            if key == "escape":
+                picker._other_mode = False
+                picker.refresh()
+            elif key == "enter":
+                lang = picker._other_text.strip()
+                if lang:
+                    self.post_message(LangSelected(lang))
+            elif key in ("backspace", "delete"):
+                picker._other_text = picker._other_text[:-1]
+                picker.refresh()
+            elif event.character:
+                picker._other_text += event.character
+                picker.refresh()
+            return
+
+        if key == "up":
+            picker._cursor = max(0, picker._cursor - 1)
+            picker.refresh()
+        elif key == "down":
+            picker._cursor = min(len(LANGUAGES) - 1, picker._cursor + 1)
+            picker.refresh()
+        elif key == "enter":
+            _, lang_id = LANGUAGES[picker._cursor]
+            if lang_id is None:
+                picker._other_mode = True
+                picker.refresh()
+            else:
+                self.post_message(LangSelected(lang_id))
+        elif key == "escape":
+            self.post_message(LangSelected(None))
+
+    def _show_lang_picker(self, from_input: bool = False) -> None:
+        self._picker_from_input = from_input
+        picker = self.query_one(LangPicker)
+        picker.reset(self.lang or self.cfg.default_lang)
+        picker.display = True
+        if from_input:
+            self.query_one("#refine-input", Input).display = False
+        else:
+            self.query_one(GateBar).display = False
+
+    def on_lang_selected(self, msg: LangSelected) -> None:
+        self.query_one(LangPicker).display = False
+        if self._picker_from_input:
+            inp = self.query_one("#refine-input", Input)
+            inp.display = True
+            inp.focus()
+        else:
+            self.query_one(GateBar).display = True
+        self._picker_from_input = False
+        if msg.lang:
+            self._set_lang(msg.lang)
+
+    def _set_lang(self, lang: str) -> None:
+        self.lang = lang
+        self._preview_lang = lang
+        self.query_one("#header", Static).update(self._header_markup())
+        log = self.query_one("#log-pane", RichLog)
+        log.write(
+            Text.assemble(
+                ("  ", ""),
+                (WARNING, f"bold {WARNING_COLOR}"),
+                (f" language → {lang}", MUTED),
+            )
+        )
+        if self._preview_code:
+            self.query_one("#script-pane", Static).update(
+                Syntax(self._preview_code, lang, theme=CODE_THEME, line_numbers=False)
+            )
 
     def _start_compose(self) -> None:
         gate_bar = self.query_one(GateBar)
