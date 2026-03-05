@@ -15,7 +15,7 @@ scripy runs an agentic loop — generate, validate, self-correct, write — enti
 Requires Python 3.11+ and a running Ollama or LM Studio instance.
 
 ```bash
-pipx install .
+pip install scripy-cli
 ```
 
 Or for development:
