@@ -242,6 +242,10 @@ class GateBar(Widget):
         self._frame = 0
         self._state = "idle"
 
+    def show_compose(self) -> None:
+        self._stop_timer()
+        self._state = "compose"
+
     def show_done(self) -> None:
         self._stop_timer()
         self._frame = 0
@@ -272,6 +276,11 @@ class GateBar(Widget):
             for key, label in [("y", "write"), ("n", "print to stdout"), ("a", "always")]:
                 t.append(f"[{key}]", style=f"bold {AMBER}")
                 t.append(f" {label}  ", style=MUTED)
+
+        elif self._state == "compose":
+            t.append("  ", "")
+            t.append("?", f"bold {AMBER}")
+            t.append("  describe the script you want to build, then press Enter", style=MUTED)
 
         elif self._state == "done":
             for key, label in [("r", "refine"), ("e", "edit"), ("q", "quit")]:
@@ -334,7 +343,7 @@ class ScripyApp(App):
     def __init__(
         self,
         cfg: Config,
-        prompt: str,
+        prompt: str | None,
         output: str | None,
         lang: str | None,
         input_file: str | None,
@@ -368,16 +377,19 @@ class ScripyApp(App):
         yield Input(placeholder="Describe your refinement…", id="refine-input")
 
     def on_mount(self) -> None:
-        log = self.query_one("#log-pane", RichLog)
-        log.write(
-            Text.assemble(
-                ("  ", ""),
-                (PROMPT, f"bold {AMBER}"),
-                (" ", ""),
-                (self.prompt, MUTED),
+        if self.prompt:
+            log = self.query_one("#log-pane", RichLog)
+            log.write(
+                Text.assemble(
+                    ("  ", ""),
+                    (PROMPT, f"bold {AMBER}"),
+                    (" ", ""),
+                    (self.prompt, MUTED),
+                )
             )
-        )
-        self.run_worker(self._agent_worker, thread=True)
+            self.run_worker(self._agent_worker, thread=True)
+        else:
+            self._start_compose()
 
     # ------------------------------------------------------------------
     # Worker
@@ -495,12 +507,16 @@ class ScripyApp(App):
     async def on_key(self, event: events.Key) -> None:
         key = event.key.lower()
 
-        # When the refine input is visible, only handle escape to cancel it.
+        # When the refine input is visible, handle escape/q to cancel.
         inp = self.query_one("#refine-input", Input)
         if inp.display:
-            if event.key == "escape":
-                inp.display = False
-                self.query_one(GateBar).display = True
+            if event.key == "escape" or (event.key == "q" and not self.prompt):
+                if not self.prompt:
+                    # No prompt yet — escape quits entirely
+                    self.exit()
+                else:
+                    inp.display = False
+                    self.query_one(GateBar).display = True
                 event.stop()
             return
 
@@ -562,9 +578,20 @@ class ScripyApp(App):
                 self._resolve_write_gate(True, always_write=True)
             event.stop()
 
+    def _start_compose(self) -> None:
+        gate_bar = self.query_one(GateBar)
+        gate_bar.display = True
+        gate_bar.show_compose()
+        inp = self.query_one("#refine-input", Input)
+        inp.placeholder = "What script should I build?"
+        inp.clear()
+        inp.display = True
+        inp.focus()
+
     def _start_refine(self) -> None:
         self.query_one(GateBar).display = False
         inp = self.query_one("#refine-input", Input)
+        inp.placeholder = "Describe your refinement…"
         inp.clear()
         inp.display = True
         inp.focus()
@@ -581,7 +608,9 @@ class ScripyApp(App):
         gate_bar.clear()
 
         log = self.query_one("#log-pane", RichLog)
-        log.write(Rule(style=MUTED))
+        is_initial = not self._is_refining and not self.prompt
+        if not is_initial:
+            log.write(Rule(style=MUTED))
         log.write(
             Text.assemble(
                 ("  ", ""),
@@ -592,12 +621,13 @@ class ScripyApp(App):
         )
 
         self._baseline_code = self._result.code if self._result else ""
-        self._is_refining = True
-        self.input_file = (
-            str(self._result.path)
-            if self._result and self._result.path
-            else self.input_file
-        )
+        if not is_initial:
+            self._is_refining = True
+        if self._result and self._result.path:
+            # Lock in the filename from the first run so refinements don't rename it.
+            if not self.output:
+                self.output = str(self._result.path)
+            self.input_file = str(self._result.path)
         self.prompt = new_prompt
         self.run_worker(self._agent_worker, thread=True)
 

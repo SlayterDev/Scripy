@@ -21,7 +21,7 @@ def version_callback(ctx: click.Context, _param: click.Parameter, value: bool) -
 
 
 @click.command()
-@click.option("-p", "--prompt", required=True, help="What script to generate.")
+@click.option("-p", "--prompt", default=None, help="What script to generate.")
 @click.option("-o", "--output", default=None, help="Output file path.")
 @click.option("-l", "--lang", default=None, help="Language override (python, bash, etc.).")
 @click.option("--model", default=None, help="Model name override.")
@@ -54,6 +54,9 @@ def main(
 ) -> None:
     """scripy — generate scripts with local LLMs."""
     cfg = load_config()
+
+    if not tui and not prompt:
+        raise click.UsageError("Missing option '-p' / '--prompt'.")
 
     # Apply CLI overrides
     if model:
