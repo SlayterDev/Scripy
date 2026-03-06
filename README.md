@@ -28,7 +28,7 @@ pip install -e .
 
 ## Quick start
 
-> **Note:** This assumes you're running Ollama on the same machine with `qwen2.5-coder:7b` installed. See [Configuration](#configuration) below for more detialed configuration steps.
+> **Note:** This assumes you're running Ollama on the same machine with `qwen2.5-coder:7b` installed. See [Configuration](#configuration) below for more detailed configuration steps.
 
 ```bash
 # Generate a Python script
@@ -104,7 +104,7 @@ scripy --model qwen2.5-coder:7b -p "..."
 ## Model recommendations
 
 scripy targets models that run on small consumer hardware (~4–8GB RAM) but will obviously
-excell on more powerful machines. That being said here are some reccomendations for
+excel on more powerful machines. That being said here are some recommendations for
 small machines.
 
 | Model | Size | Tool calling | Code quality | Notes |
@@ -146,7 +146,7 @@ force_tools = false
 
 With `force_tools` off, scripy falls back to inline tool-call detection automatically.
 I've personally had better results using LM Studio for smaller models on small hardware
-(think M2 mac mini 8GB RAM). Sometimes using OLLama the model kept appending tool calls
+(think M2 mac mini 8GB RAM). Sometimes using Ollama the model kept appending tool calls
 to the script output.
 
 ---
