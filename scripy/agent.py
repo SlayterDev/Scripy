@@ -58,7 +58,10 @@ class Agent:
         self._always_write = yes
         self.reporter: Reporter = reporter or RichReporter()
         self.gate_provider: GateProvider = gate_provider or StdinGateProvider()
-        self.client = OpenAI(base_url=cfg.base_url, api_key=cfg.api_key)
+        if cfg.provider == "openai":
+            self.client = OpenAI(api_key=cfg.api_key)
+        else:
+            self.client = OpenAI(base_url=cfg.base_url, api_key=cfg.api_key)
         self.messages: list[dict] = []
         self.current_code = ""
         self._prev_code = ""

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -7,6 +8,7 @@ from pathlib import Path
 
 @dataclass
 class Config:
+    provider: str = "local"  # "local" | "openai"
     base_url: str = "http://localhost:11434/v1"
     model: str = "qwen2.5-coder:7b"
     api_key: str = "ollama"
@@ -29,6 +31,8 @@ def load_config() -> Config:
         model_section = data.get("model", {})
         agent_section = data.get("agent", {})
 
+        if "provider" in model_section:
+            config.provider = model_section["provider"]
         if "base_url" in model_section:
             config.base_url = model_section["base_url"]
         if "model" in model_section:
@@ -48,5 +52,11 @@ def load_config() -> Config:
             config.default_lang = agent_section["default_lang"]
         if "sandbox_timeout" in agent_section:
             config.sandbox_timeout = agent_section["sandbox_timeout"]
+
+    # Env var overrides api_key when using OpenAI provider
+    if config.provider == "openai":
+        env_key = os.environ.get("OPENAI_API_KEY")
+        if env_key:
+            config.api_key = env_key
 
     return config

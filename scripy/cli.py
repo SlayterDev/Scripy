@@ -5,7 +5,7 @@ from rich.console import Console
 
 from scripy import __version__
 from scripy.config import load_config
-from scripy.theme import AMBER, MUTED, SUCCESS_COLOR, SUCCESS, WORKING
+from scripy.theme import AMBER, MUTED, SUCCESS_COLOR, SUCCESS, WARNING_COLOR, WORKING
 
 console = Console()
 
@@ -14,7 +14,10 @@ def version_callback(ctx: click.Context, _param: click.Parameter, value: bool) -
     if not value or ctx.resilient_parsing:
         return
     cfg = load_config()
-    host = cfg.base_url.removeprefix("http://").removeprefix("https://")
+    if cfg.provider == "openai":
+        host = "api.openai.com"
+    else:
+        host = cfg.base_url.removeprefix("http://").removeprefix("https://")
     console.print(f"scripy [bold]{__version__}[/bold]")
     console.print(f"model  [{MUTED}]{cfg.model} @ {host}[/{MUTED}]")
     ctx.exit()
@@ -25,6 +28,12 @@ def version_callback(ctx: click.Context, _param: click.Parameter, value: bool) -
 @click.option("-o", "--output", default=None, help="Output file path.")
 @click.option("-l", "--lang", default=None, help="Language override (python, bash, etc.).")
 @click.option("--model", default=None, help="Model name override.")
+@click.option(
+    "--provider",
+    default=None,
+    type=click.Choice(["local", "openai"], case_sensitive=False),
+    help="Inference provider (local or openai).",
+)
 @click.option("--input", "input_file", default=None, help="Existing script to modify.")
 @click.option("--tui", is_flag=True, default=False, help="Launch Textual TUI.")
 @click.option("-y", "--yes", is_flag=True, default=False, help="Skip all confirmation gates.")
@@ -47,6 +56,7 @@ def main(
     output: str | None,
     lang: str | None,
     model: str | None,
+    provider: str | None,
     input_file: str | None,
     tui: bool,
     yes: bool,
@@ -59,6 +69,8 @@ def main(
         raise click.UsageError("Missing option '-p' / '--prompt'.")
 
     # Apply CLI overrides
+    if provider:
+        cfg.provider = provider
     if model:
         cfg.model = model
     if lang:
@@ -70,6 +82,20 @@ def main(
         app = ScripyApp(cfg, prompt, output, lang, input_file, yes, force_tools)
         app.run()
         return
+
+    if cfg.provider == "openai":
+        if cfg.api_key in ("ollama", "lm-studio", ""):
+            raise click.UsageError(
+                "OpenAI provider requires an api_key in ~/.config/scripy/config.toml"
+                " or OPENAI_API_KEY environment variable."
+            )
+        if ":" in cfg.model:
+            console.print(
+                f"  [{WARNING_COLOR}]~[/{WARNING_COLOR}]"
+                f" [{MUTED}]model '{cfg.model}' looks like a local model"
+                f" — did you mean to set --provider local?[/{MUTED}]"
+            )
+        console.print(f"  [{MUTED}]~ sending data to api.openai.com[/{MUTED}]")
 
     console.print(f"  [{AMBER}]{WORKING}[/{AMBER}] scripy v{__version__} - {cfg.model}")
 
