@@ -19,7 +19,7 @@ class TestConfigDefaults:
         assert Config().temperature == 0.2
 
     def test_max_tokens(self):
-        assert Config().max_tokens == 2048
+        assert Config().max_tokens == 4096
 
     def test_force_tools_default_on(self):
         assert Config().force_tools is True
