@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>scripy — generate scripts with local LLMs</title>
+  <title>scripy - generate scripts with local LLMs</title>
   <meta name="description" content="A CLI agent that writes, validates, and self-corrects scripts using local LLMs. No cloud, no API keys, no data leaving your machine." />
-  <meta property="og:title" content="scripy — generate scripts with local LLMs" />
+  <meta property="og:title" content="scripy - generate scripts with local LLMs" />
   <meta property="og:description" content="One command. Local model. Script in seconds." />
   <meta property="og:url" content="https://scripy.dev" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -221,6 +221,7 @@
     }
 
     .terminal-titlebar {
+      position: relative;
       display: flex;
       align-items: center;
       gap: 0.5rem;
@@ -239,11 +240,14 @@
     .terminal-dot.green  { background: #28c840; }
 
     .terminal-title {
-      flex: 1;
+      position: absolute;
+      left: 0;
+      right: 0;
       text-align: center;
       font-size: 0.75rem;
       color: var(--slate);
       font-family: 'JetBrains Mono', monospace;
+      pointer-events: none;
     }
 
     .terminal-body {
@@ -688,7 +692,7 @@
             <span class="terminal-dot red"></span>
             <span class="terminal-dot yellow"></span>
             <span class="terminal-dot green"></span>
-            <span class="terminal-title">bash — 80×24</span>
+            <span class="terminal-title">bash - 80×24</span>
           </div>
           <div class="terminal-body">
             <div><span class="t-prompt">$</span> <span class="t-cmd">scripy -p "rename all my jpegs by date taken"</span></div>
@@ -759,7 +763,7 @@
             <div class="step-icon">?</div>
           </div>
           <h3>Confirm &amp; write</h3>
-          <p>Before any side-effectful action — running or writing — scripy gates and asks for confirmation. Use <code>-y</code> to skip for non-interactive use.</p>
+          <p>Before any side-effectful action - running or writing - scripy gates and asks for confirmation. Use <code>-y</code> to skip for non-interactive use.</p>
         </div>
       </div>
     </div>
@@ -777,7 +781,7 @@
 
       <div class="gates-grid">
         <div class="gate-card">
-          <div class="gate-header">Run gate — before sandboxed execution</div>
+          <div class="gate-header">Run gate - before sandboxed execution</div>
           <div class="gate-body">
             <div><span class="t-ask">  ? run script to validate? [y/n/e/v/a] ›</span></div>
             <div class="gate-keys">
@@ -790,7 +794,7 @@
           </div>
         </div>
         <div class="gate-card">
-          <div class="gate-header">Write gate — before writing to disk</div>
+          <div class="gate-header">Write gate - before writing to disk</div>
           <div class="gate-body">
             <div><span class="t-ask">  ? write to disk as dedup.py? [y/n/v] ›</span></div>
             <div class="gate-keys">
@@ -816,7 +820,7 @@
         <div class="feature">
           <div class="feature-icon">⚬ local-first</div>
           <h3>No cloud needed</h3>
-          <p>Runs entirely on your machine via Ollama or LM Studio. Optional cloud integration coming soon.</p>
+          <p>Runs entirely on your machine via Ollama or LM Studio. Optional cloud integration via OpenAI is available too.</p>
         </div>
         <div class="feature">
           <div class="feature-icon">▸ agentic loop</div>
@@ -902,7 +906,7 @@
       </div>
 
       <p style="margin-top:1.25rem; font-size:0.8rem; color:var(--slate);">
-        Any OpenAI-compatible endpoint works — set <code style="color:var(--amber)">base_url</code> in <code style="color:var(--amber)">~/.config/scripy/config.toml</code>.
+        Any OpenAI-compatible endpoint works. Set <code style="color:var(--amber)">base_url</code> in <code style="color:var(--amber)">~/.config/scripy/config.toml</code>.
       </p>
     </div>
   </section>
@@ -973,7 +977,7 @@
   <footer>
     <div class="container">
       <div class="footer-inner">
-        <span class="footer-logo"><span class="glyph">▸</span> scripy — MIT License</span>
+        <span class="footer-logo"><span class="glyph">▸</span> scripy - MIT License</span>
         <div class="footer-links">
           <a href="https://github.com/SlayterDev/Scripy" target="_blank" rel="noopener">GitHub</a>
           <a href="https://pypi.org/project/scripy-cli/" target="_blank" rel="noopener">PyPI</a>

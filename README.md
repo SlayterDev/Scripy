@@ -1,13 +1,13 @@
 # ▸ scripy
 
-Generate small, single-file scripts using locally hosted LLMs. Ideal when presented with repetitive terminal tasks. 
+Generate small, single-file scripts using locally hosted (or cloud) LLMs. Ideal when presented with repetitive terminal tasks. 
 Available in the command line when you need it.
 
 ```
 scripy -p "rename all my jpegs by date taken"
 ```
 
-scripy runs an agentic loop: generate, validate, self-correct, and write entirely on your machine via [Ollama](https://ollama.com) or [LM Studio](https://lmstudio.ai).
+scripy runs an agentic loop: generate, validate, self-correct, and write entirely locally via [Ollama](https://ollama.com) or [LM Studio](https://lmstudio.ai).
 
 ---
 
@@ -29,7 +29,7 @@ pip install -e .
 
 ## Quick start
 
-> **Note:** This assumes you're running Ollama on the same machine with `qwen2.5-coder:7b` installed. See [Configuration](#configuration) below for more detailed configuration steps.
+> **Note:** This assumes you're running Ollama on the same machine with `qwen2.5-coder:7b` installed. See [configuration](#configuration) below for more detailed configuration steps.
 
 ```bash
 # Generate a Python script
@@ -77,13 +77,14 @@ Use `-y` / `--yes` to bypass all gates non-interactively.
 
 ## Configuration
 
-Default config works with a local Ollama instance. Override via `~/.config/scripy/config.toml`:
+Default config works with a local Ollama instance. Override via `~/.config/scripy/config.toml` (defaults shown below):
 
 ```toml
 [model]
+  provider    = "local" # OpenAI for cloud models
   base_url    = "http://192.168.1.10:11434/v1"  # remote Ollama
   model       = "llama3.1:8b"
-  api_key     = "ollama" # use "lm-studio" for LM Studio
+  api_key     = "ollama" # use "lm-studio" for LM Studio or an OpenAI key for cloud models
   temperature = 0.2
   max_tokens  = 4096
 
@@ -102,7 +103,7 @@ scripy --model qwen2.5-coder:7b -p "..."
 
 ---
 
-## Model recommendations
+## Local model recommendations
 
 scripy targets models that run on small consumer hardware (~4–8GB RAM) but will obviously
 excel on more powerful machines. That being said, here are some recommendations for
@@ -163,6 +164,7 @@ Options:
   -p, --prompt TEXT   What script to generate.
   -o, --output TEXT   Output file path.
   -l, --lang TEXT     Language override (python, bash, etc.).
+  --provider TEXT     "local" or "openai"
   --model TEXT        Model name override.
   --input TEXT        Existing script to modify.
   --tui               Launch Textual TUI.
