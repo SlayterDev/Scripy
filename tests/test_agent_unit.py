@@ -38,7 +38,7 @@ def make_cfg(**overrides):
         model="test-model",
         api_key="test",
         temperature=0.2,
-        max_tokens=2048,
+        max_tokens=4096,
         force_tools=False,
         max_iterations=3,
         default_lang="python",
