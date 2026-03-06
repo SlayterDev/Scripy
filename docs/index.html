@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>scripy — generate scripts with local LLMs</title>
+  <meta name="description" content="A CLI agent that writes, validates, and self-corrects scripts using local LLMs. No cloud, no API keys, no data leaving your machine." />
+  <meta property="og:title" content="scripy — generate scripts with local LLMs" />
+  <meta property="og:description" content="One command. Local model. Script in seconds." />
+  <meta property="og:url" content="https://scripy.dev" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --black:   #000000;
+      --amber:   #F59E0B;
+      --amber-dim: #b97c08;
+      --slate:   #64748B;
+      --slate-dim: #3d4f61;
+      --green:   #4ADE80;
+      --red:     #F87171;
+      --white:   #F8FAFC;
+      --muted:   #94A3B8;
+      --surface: #0d0d0d;
+      --border:  #1e2530;
+      --code-bg: #0a0a0a;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--black);
+      color: var(--white);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    code, pre { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
+
+    /* ── Layout ───────────────────────────────────────────────────── */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 2rem;
+    }
+
+    /* ── Nav ──────────────────────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .nav-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--white);
+    }
+
+    .nav-logo .glyph { color: var(--amber); }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .nav-links a {
+      font-size: 0.875rem;
+      color: var(--muted);
+      transition: color 0.15s;
+    }
+
+    .nav-links a:hover { color: var(--white); }
+
+    .btn-github {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.875rem;
+      color: var(--white) !important;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .btn-github:hover {
+      border-color: var(--slate);
+      background: rgba(255,255,255,0.04);
+    }
+
+    /* ── Hero ─────────────────────────────────────────────────────── */
+    .hero {
+      padding: 7rem 0 5rem;
+      text-align: center;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--amber);
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      border-radius: 100px;
+      padding: 0.3rem 0.85rem;
+      margin-bottom: 2rem;
+    }
+
+    .hero-badge .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--amber);
+    }
+
+    .hero h1 {
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero h1 .accent { color: var(--amber); }
+
+    .hero-sub {
+      font-size: clamp(1rem, 2vw, 1.2rem);
+      color: var(--muted);
+      max-width: 580px;
+      margin: 0 auto 3rem;
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 4rem;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.75rem;
+      background: var(--amber);
+      color: #000;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .btn-primary:hover {
+      background: #fbbf24;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.75rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      color: var(--muted);
+      transition: border-color 0.15s, color 0.15s, transform 0.1s;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--slate);
+      color: var(--white);
+      transform: translateY(-1px);
+    }
+
+    /* ── Terminal Demo ────────────────────────────────────────────── */
+    .terminal-wrap {
+      max-width: 740px;
+      margin: 0 auto;
+    }
+
+    .terminal {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      text-align: left;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.03),
+        0 32px 80px rgba(0,0,0,0.7),
+        0 0 120px rgba(245,158,11,0.03);
+    }
+
+    .terminal-titlebar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background: #111;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .terminal-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+    }
+
+    .terminal-dot.red    { background: #ff5f57; }
+    .terminal-dot.yellow { background: #febc2e; }
+    .terminal-dot.green  { background: #28c840; }
+
+    .terminal-title {
+      flex: 1;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--slate);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .terminal-body {
+      padding: 1.5rem;
+      font-size: 0.85rem;
+      line-height: 1.75;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .t-prompt  { color: var(--amber); }
+    .t-cmd     { color: var(--white); }
+    .t-working { color: var(--amber); }
+    .t-ok      { color: var(--green); }
+    .t-ask     { color: var(--muted); }
+    .t-input   { color: var(--amber); }
+    .t-dim     { color: var(--slate); }
+    .t-file    { color: var(--white); font-weight: 600; }
+
+    /* ── Install pill ─────────────────────────────────────────────── */
+    .install-bar {
+      margin-top: 3.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+    }
+
+    .install-code {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem 1.2rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      color: var(--white);
+    }
+
+    .install-code span { color: var(--amber); }
+
+    .copy-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--slate);
+      padding: 0.8rem 0.7rem;
+      font-size: 0.75rem;
+      cursor: pointer;
+      font-family: 'JetBrains Mono', monospace;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .copy-btn:hover { border-color: var(--amber); color: var(--amber); }
+    .copy-btn.copied { border-color: var(--green); color: var(--green); }
+
+    /* ── Section shared ───────────────────────────────────────────── */
+    section { padding: 5rem 0; }
+
+    .section-label {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--amber);
+      margin-bottom: 1rem;
+    }
+
+    .section-title {
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      margin-bottom: 1rem;
+    }
+
+    .section-sub {
+      color: var(--muted);
+      font-size: 1.05rem;
+      max-width: 540px;
+    }
+
+    /* ── How it works ─────────────────────────────────────────────── */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5px;
+      margin-top: 3.5rem;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .step {
+      background: var(--black);
+      padding: 2rem;
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .step-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--amber);
+      letter-spacing: 0.1em;
+    }
+
+    .step-icon {
+      font-size: 0.7rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--amber);
+    }
+
+    .step h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .step p { font-size: 0.9rem; color: var(--muted); line-height: 1.6; }
+
+    .step code {
+      font-size: 0.8rem;
+      color: var(--amber);
+      background: rgba(245,158,11,0.08);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+    }
+
+    /* ── Features ─────────────────────────────────────────────────── */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1px;
+      margin-top: 3.5rem;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .feature {
+      background: var(--black);
+      padding: 2rem;
+      transition: background 0.15s;
+    }
+
+    .feature:hover { background: var(--surface); }
+
+    .feature-icon {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.1rem;
+      color: var(--amber);
+      margin-bottom: 1rem;
+    }
+
+    .feature h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+    }
+
+    .feature p { font-size: 0.875rem; color: var(--muted); line-height: 1.6; }
+
+    /* ── Models table ─────────────────────────────────────────────── */
+    .models-section { border-top: 1px solid var(--border); }
+
+    .models-table-wrap {
+      margin-top: 3rem;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+
+    thead th {
+      text-align: left;
+      padding: 0.85rem 1.25rem;
+      background: var(--surface);
+      color: var(--slate);
+      font-weight: 500;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface); }
+
+    tbody td {
+      padding: 1rem 1.25rem;
+      vertical-align: middle;
+    }
+
+    .model-name {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      color: var(--white);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .badge-amber   { background: rgba(245,158,11,0.12); color: var(--amber); }
+    .badge-green   { background: rgba(74,222,128,0.1);  color: var(--green); }
+    .badge-slate   { background: rgba(100,116,139,0.15); color: var(--muted); }
+    .badge-default { background: rgba(245,158,11,0.2); color: var(--amber); border: 1px solid rgba(245,158,11,0.3); }
+
+    .model-note { font-size: 0.8rem; color: var(--slate); }
+
+    /* ── CTA ──────────────────────────────────────────────────────── */
+    .cta-section {
+      text-align: center;
+      border-top: 1px solid var(--border);
+    }
+
+    .cta-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 4rem 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-box::before {
+      content: '';
+      position: absolute;
+      top: -80px; left: 50%;
+      transform: translateX(-50%);
+      width: 400px; height: 160px;
+      background: radial-gradient(ellipse, rgba(245,158,11,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .cta-box h2 {
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.75rem;
+    }
+
+    .cta-box h2 .accent { color: var(--amber); }
+    .cta-box p { color: var(--muted); margin-bottom: 2.5rem; }
+
+    .cta-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    /* ── Gates demo ───────────────────────────────────────────────── */
+    .gates-section { border-top: 1px solid var(--border); }
+
+    .gates-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-top: 3rem;
+    }
+
+    @media (max-width: 720px) { .gates-grid { grid-template-columns: 1fr; } }
+
+    .gate-card {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .gate-header {
+      padding: 0.75rem 1.25rem;
+      background: #111;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.7rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--slate);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .gate-body {
+      padding: 1.25rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      line-height: 1.8;
+    }
+
+    .gate-keys {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .key {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .key kbd {
+      display: inline-block;
+      padding: 0.15rem 0.45rem;
+      background: #1a1a1a;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--amber);
+    }
+
+    .feature-highlight {
+      color: var(--amber);
+      background: rgba(245,158,11,0.1);
+      padding:.1rem .35rem;
+      border-radius:3px;
+      font-size:.8rem;
+    }
+
+    /* ── Footer ───────────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2.5rem 0;
+    }
+
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .footer-logo {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .footer-logo .glyph { color: var(--amber); }
+
+    .footer-links {
+      display: flex;
+      gap: 1.5rem;
+      font-size: 0.85rem;
+      color: var(--slate);
+    }
+
+    .footer-links a:hover { color: var(--muted); }
+
+    /* ── Separator ────────────────────────────────────────────────── */
+    .sep { border: none; border-top: 1px solid var(--border); }
+
+    /* ── Responsive ───────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .nav-links .nav-text { display: none; }
+      .hero { padding: 4rem 0 3rem; }
+      .install-bar { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Nav ──────────────────────────────────────────────────────── -->
+  <nav>
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">
+        <span class="glyph">▸</span> scripy
+      </a>
+      <div class="nav-links">
+        <a href="#how-it-works" class="nav-text">How it works</a>
+        <a href="#features" class="nav-text">Features</a>
+        <a href="#models" class="nav-text">Models</a>
+        <a href="https://github.com/SlayterDev/Scripy" class="btn-github" target="_blank" rel="noopener">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+          </svg>
+          <span>GitHub</span>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── Hero ─────────────────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-badge">
+        <span class="dot"></span>
+        v0.1.0 — local-first, no cloud
+      </div>
+
+      <h1>
+        Generate scripts<br />
+        <span class="accent">locally.</span> Instantly.
+      </h1>
+
+      <p class="hero-sub">
+        A CLI agent that writes, validates, and self-corrects scripts using
+        local LLMs. There when you need it. Works on ~4-8 GB RAM.
+      </p>
+
+      <div class="hero-actions">
+        <a href="#install" class="btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 17 12 21 16 17"/><line x1="12" x2="12" y1="3" y2="21"/></svg>
+          Learn More
+        </a>
+        <a href="https://github.com/SlayterDev/Scripy" class="btn-secondary" target="_blank" rel="noopener">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+          View on GitHub
+        </a>
+      </div>
+
+      <!-- Terminal mockup -->
+      <div class="terminal-wrap">
+        <div class="terminal">
+          <div class="terminal-titlebar">
+            <span class="terminal-dot red"></span>
+            <span class="terminal-dot yellow"></span>
+            <span class="terminal-dot green"></span>
+            <span class="terminal-title">bash — 80×24</span>
+          </div>
+          <div class="terminal-body">
+            <div><span class="t-prompt">$</span> <span class="t-cmd">scripy -p "rename all my jpegs by date taken"</span></div>
+            <div>&nbsp;</div>
+            <div><span class="t-working">▸</span> <span style="color:#94A3B8">scripy v0.1.0 - qwen2.5-coder:7b</span></div>
+            <div><span class="t-working">▸ generating ⚬⚬⚬⚬</span></div>
+            <div>&nbsp;</div>
+            <div><span class="t-ok">✓</span> <span style="color:#94A3B8">syntax valid</span></div>
+            <div><span class="t-ask">  <span class="t-working">?</span> run script to validate? [y/n/e/v/a] ›</span> <span class="t-input">y</span></div>
+            <div><span class="t-working">▸</span> <span style="color:#94A3B8">running sandbox<span class="t-dim">...</span></span></div>
+            <div><span class="t-ok">✓</span> <span style="color:#94A3B8">validation passed</span></div>
+            <div>&nbsp;</div>
+            <div><span class="t-ask">  <span class="t-working">?</span> write to disk as rename_jpegs.py? [y/n/v] ›</span> <span class="t-input">y</span></div>
+            <div>&nbsp;</div>
+            <div><span class="t-ok">✓</span> wrote <span class="t-file">rename_jpegs.py</span> <span class="t-dim">2.1KB 4.3s</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Install -->
+      <div class="install-bar" id="install">
+        <div class="install-code">
+          <span>$</span> pip install scripy-cli
+        </div>
+        <button class="copy-btn" id="copy-btn" onclick="copyInstall()">copy</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── How it works ──────────────────────────────────────────────── -->
+  <section id="how-it-works" style="border-top: 1px solid var(--border);">
+    <div class="container">
+      <div class="section-label">// how it works</div>
+      <h2 class="section-title">The agentic loop</h2>
+      <p class="section-sub">
+        Describe the script you need. scripy handles the rest. Generation,
+        validation, and self-correction all before asking to write anything to disk.
+      </p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-header">
+            <div class="step-num">01</div>
+            <div class="step-icon">▸</div>
+          </div>
+          <h3>Generate</h3>
+          <p>You describe what the script should do. The local model writes it based on your prompt, language, and any existing file you pass with <code>--input</code>.</p>
+        </div>
+        <div class="step">
+          <div class="step-header">
+            <div class="step-num">02</div>
+            <div class="step-icon">✓</div>
+          </div>
+          <h3>Validate</h3>
+          <p>scripy runs a syntax check (<code>py_compile</code>, <code>bash -n</code>) and optionally executes the script in a sandboxed subprocess with a configurable timeout.</p>
+        </div>
+        <div class="step">
+          <div class="step-header">
+            <div class="step-num">03</div>
+            <div class="step-icon">~</div>
+          </div>
+          <h3>Self-correct</h3>
+          <p>If validation fails, the error is fed back to the model for up to 3 iterations. Each revision is diffed and previewed live in TUI mode.</p>
+        </div>
+        <div class="step">
+          <div class="step-header">
+            <div class="step-num">04</div>
+            <div class="step-icon">?</div>
+          </div>
+          <h3>Confirm &amp; write</h3>
+          <p>Before any side-effectful action — running or writing — scripy gates and asks for confirmation. Use <code>-y</code> to skip for non-interactive use.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Confirmation gates ─────────────────────────────────────────── -->
+  <section class="gates-section">
+    <div class="container">
+      <div class="section-label">// confirmation gates</div>
+      <h2 class="section-title">You stay in control</h2>
+      <p class="section-sub">
+        scripy never runs or writes anything without asking. Every side-effectful
+        action is gated by user input.
+      </p>
+
+      <div class="gates-grid">
+        <div class="gate-card">
+          <div class="gate-header">Run gate — before sandboxed execution</div>
+          <div class="gate-body">
+            <div><span class="t-ask">  ? run script to validate? [y/n/e/v/a] ›</span></div>
+            <div class="gate-keys">
+              <span class="key"><kbd>y</kbd> run it</span>
+              <span class="key"><kbd>n</kbd> skip</span>
+              <span class="key"><kbd>e</kbd> open in $EDITOR</span>
+              <span class="key"><kbd>v</kbd> preview script</span>
+              <span class="key"><kbd>a</kbd> always yes</span>
+            </div>
+          </div>
+        </div>
+        <div class="gate-card">
+          <div class="gate-header">Write gate — before writing to disk</div>
+          <div class="gate-body">
+            <div><span class="t-ask">  ? write to disk as dedup.py? [y/n/v] ›</span></div>
+            <div class="gate-keys">
+              <span class="key"><kbd>y</kbd> write file</span>
+              <span class="key"><kbd>n</kbd> skip write, print to stdout</span>
+              <span class="key"><kbd>v</kbd> preview file</span>
+            </div>
+            <br />
+            <div style="font-size:0.78rem; color: var(--slate);">Use <span style="color:var(--amber)">-y</span> / <span style="color:var(--amber)">--yes</span> to bypass all gates non-interactively.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Features ──────────────────────────────────────────────────── -->
+  <section id="features" style="border-top: 1px solid var(--border);">
+    <div class="container">
+      <div class="section-label">// features</div>
+      <h2 class="section-title">Everything you need,<br />nothing you don't</h2>
+
+      <div class="features">
+        <div class="feature">
+          <div class="feature-icon">⚬ local-first</div>
+          <h3>No cloud needed</h3>
+          <p>Runs entirely on your machine via Ollama or LM Studio. Optional cloud integration coming soon.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">▸ agentic loop</div>
+          <h3>Generate → validate → correct</h3>
+          <p>Multi-turn self-correction loop feeds syntax errors and runtime failures back to the model to improve the script iteratively.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">✓ sandboxed validation</div>
+          <h3>Safe by default</h3>
+          <p>Syntax is checked before execution. Sandbox runs use subprocess with a configurable timeout before you test it on your system.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">~ TUI mode</div>
+          <h3>Full interactive TUI</h3>
+          <p>Launch with <code class="feature-highlight">--tui</code> for a split-pane interface: agent log on the left, live syntax-highlighted preview on the right with diff on revision.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">? multi-language</div>
+          <h3>Python, Bash, JS &amp; more</h3>
+          <p>Generate scripts in any language. Use <code class="feature-highlight">--lang</code> to specify or pick interactively in TUI mode.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">▸ modify existing scripts</div>
+          <h3>Refine scripts you already have</h3>
+          <p>Pass an existing script with <code class="feature-highlight">--input</code> to modify, extend, or fix it while keeping the model grounded in the original.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Models ─────────────────────────────────────────────────────── -->
+  <section id="models" class="models-section">
+    <div class="container">
+      <div class="section-label">// model support</div>
+      <h2 class="section-title">Runs on small hardware</h2>
+      <p class="section-sub">
+        Designed for ~4–8 GB RAM. Tested with Ollama and LM Studio.
+        Scales up to larger models with no config changes.
+      </p>
+
+      <div class="models-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>Size</th>
+              <th>Tool calling</th>
+              <th>Code quality</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="model-name">llama3.1:8b</span></td>
+              <td><span style="color:var(--muted);font-size:.85rem">~4.7 GB</span></td>
+              <td><span class="badge badge-green">native</span></td>
+              <td><span class="badge badge-amber">good</span></td>
+              <td><span class="badge badge-default">recommended</span></td>
+            </tr>
+            <tr>
+              <td><span class="model-name">qwen2.5-coder:7b</span></td>
+              <td><span style="color:var(--muted);font-size:.85rem">~4.4 GB</span></td>
+              <td><span class="badge badge-slate">inline</span></td>
+              <td><span class="badge badge-green">excellent</span></td>
+              <td><span class="model-note">Best raw code quality</span></td>
+            </tr>
+            <tr>
+              <td><span class="model-name">deepseek-coder:6.7b</span></td>
+              <td><span style="color:var(--muted);font-size:.85rem">~4.0 GB</span></td>
+              <td><span class="badge badge-slate">inline</span></td>
+              <td><span class="badge badge-green">excellent</span></td>
+              <td><span class="model-note">Strong Python support</span></td>
+            </tr>
+            <tr>
+              <td><span class="model-name">llama3.2:3b</span></td>
+              <td><span style="color:var(--muted);font-size:.85rem">~2.0 GB</span></td>
+              <td><span class="badge badge-green">native</span></td>
+              <td><span class="badge badge-slate">fair</span></td>
+              <td><span class="model-note">Ultra-low resource fallback</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p style="margin-top:1.25rem; font-size:0.8rem; color:var(--slate);">
+        Any OpenAI-compatible endpoint works — set <code style="color:var(--amber)">base_url</code> in <code style="color:var(--amber)">~/.config/scripy/config.toml</code>.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── Quick examples ─────────────────────────────────────────────── -->
+  <section style="border-top: 1px solid var(--border);">
+    <div class="container">
+      <div class="section-label">// examples</div>
+      <h2 class="section-title">One command away</h2>
+      <p class="section-sub" style="margin-bottom:2.5rem">
+        Just prompt from the command line. scripy figures out the rest.
+      </p>
+
+      <div class="terminal-wrap" style="max-width:100%">
+        <div class="terminal">
+          <div class="terminal-titlebar">
+            <span class="terminal-dot red"></span>
+            <span class="terminal-dot yellow"></span>
+            <span class="terminal-dot green"></span>
+            <span class="terminal-title">bash</span>
+          </div>
+          <div class="terminal-body" style="display:grid;grid-template-columns:1fr 1fr;gap:0 2rem;">
+            <div>
+              <div style="color:var(--slate);font-size:.7rem;margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.08em"># Python</div>
+              <div><span class="t-prompt">$</span> <span class="t-cmd">scripy -p "find duplicate files in a directory"</span></div>
+              <br />
+              <div><span class="t-prompt">$</span> <span class="t-cmd">scripy -p "watch a directory for changes and notify me"</span></div>
+              <br />
+              <div><span class="t-prompt">$</span> <span class="t-cmd">scripy -p "bulk resize images to 1080px" -o resize.py</span></div>
+            </div>
+            <div>
+              <div style="color:var(--slate);font-size:.7rem;margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.08em"># Bash / modify</div>
+              <div><span class="t-prompt">$</span> <span class="t-cmd">scripy -p "backup home to /tmp" --lang bash</span></div>
+              <br />
+              <div><span class="t-prompt">$</span> <span class="t-cmd">scripy -p "add a --dry-run flag" --input dedup.py</span></div>
+              <br />
+              <div><span class="t-prompt">$</span> <span class="t-cmd">scripy -p "..." -y  <span class="t-dim"># skip all gates</span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CTA ────────────────────────────────────────────────────────── -->
+  <section class="cta-section">
+    <div class="container">
+      <div class="cta-box">
+        <h2>Ready to try <span class="accent">scripy</span>?</h2>
+        <p>Install from PyPI. Requires Python 3.11+ and Ollama or LM Studio.</p>
+        <div class="cta-actions">
+          <div class="install-code" style="background:#111">
+            <span>$</span> pip install scripy-cli
+          </div>
+          <a href="https://github.com/SlayterDev/Scripy" class="btn-secondary" target="_blank" rel="noopener">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+            GitHub
+          </a>
+          <a href="https://ollama.com" class="btn-secondary" target="_blank" rel="noopener" style="font-size:.85rem">
+            Get Ollama →
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Footer ─────────────────────────────────────────────────────── -->
+  <footer>
+    <div class="container">
+      <div class="footer-inner">
+        <span class="footer-logo"><span class="glyph">▸</span> scripy — MIT License</span>
+        <div class="footer-links">
+          <a href="https://github.com/SlayterDev/Scripy" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://pypi.org/project/scripy-cli/" target="_blank" rel="noopener">PyPI</a>
+          <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a>
+          <a href="https://lmstudio.ai" target="_blank" rel="noopener">LM Studio</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    function copyInstall() {
+      navigator.clipboard.writeText('pip install scripy-cli').then(() => {
+        const btn = document.getElementById('copy-btn');
+        btn.textContent = 'copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'copy';
+          btn.classList.remove('copied');
+        }, 2000);
+      });
+    }
+  </script>
+
+</body>
+</html>

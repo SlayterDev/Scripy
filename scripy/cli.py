@@ -71,7 +71,7 @@ def main(
         app.run()
         return
 
-    console.print(f"  [{AMBER}]{WORKING}[/{AMBER}] scripy v{__version__}")
+    console.print(f"  [{AMBER}]{WORKING}[/{AMBER}] scripy v{__version__} - {cfg.model}")
 
     from scripy.agent import Agent
 
