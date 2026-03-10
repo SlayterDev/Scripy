@@ -18,6 +18,7 @@ class Config:
     max_iterations: int = 3
     default_lang: str = "python"
     sandbox_timeout: int = 10
+    code_theme: str = "dracula"
 
 
 def load_config() -> Config:
@@ -30,6 +31,7 @@ def load_config() -> Config:
 
         model_section = data.get("model", {})
         agent_section = data.get("agent", {})
+        theme_section = data.get("theme", {})
 
         if "provider" in model_section:
             config.provider = model_section["provider"]
@@ -52,6 +54,9 @@ def load_config() -> Config:
             config.default_lang = agent_section["default_lang"]
         if "sandbox_timeout" in agent_section:
             config.sandbox_timeout = agent_section["sandbox_timeout"]
+
+        if "code_theme" in theme_section:
+            config.code_theme = theme_section["code_theme"]
 
     # Env var overrides api_key when using OpenAI provider
     if config.provider == "openai":

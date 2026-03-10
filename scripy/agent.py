@@ -12,6 +12,7 @@ from scripy.executor import run_script as exec_run, validate_syntax
 from scripy.gates import GateProvider, StdinGateProvider
 from scripy.prompts import SYSTEM_PROMPT, build_user_prompt
 from scripy.reporter import Reporter, RichReporter
+from scripy.theme import get_code_theme
 from scripy.theme import (
     AMBER,
     ERROR_COLOR,
@@ -56,7 +57,7 @@ class Agent:
         self.force_tools = force_tools or cfg.force_tools
         self.always_run = yes
         self._always_write = yes
-        self.reporter: Reporter = reporter or RichReporter()
+        self.reporter: Reporter = reporter or RichReporter(theme=get_code_theme(cfg.code_theme))
         self.gate_provider: GateProvider = gate_provider or StdinGateProvider()
         if cfg.provider == "openai":
             self.client = OpenAI(api_key=cfg.api_key)

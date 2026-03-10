@@ -1,4 +1,5 @@
 """Textual TUI for scripy."""
+
 from __future__ import annotations
 
 import difflib
@@ -22,7 +23,21 @@ from scripy.agent import Agent, RunResult
 from scripy.config import Config
 from scripy.gates import GateProvider
 from scripy.reporter import Reporter
-from scripy.theme import AMBER, CODE_THEME, ERROR_COLOR, FAILED, LANGUAGES, MUTED, PROMPT, SPINNER_FRAMES, SUCCESS, SUCCESS_COLOR, WARNING, WARNING_COLOR, WORKING
+from scripy.theme import (
+    AMBER,
+    ERROR_COLOR,
+    FAILED,
+    LANGUAGES,
+    MUTED,
+    PROMPT,
+    SPINNER_FRAMES,
+    SUCCESS,
+    SUCCESS_COLOR,
+    WARNING,
+    WARNING_COLOR,
+    WORKING,
+    get_code_theme,
+)
 
 
 def _changed_lines(old_code: str, new_code: str) -> set[int]:
@@ -207,9 +222,7 @@ class TuiReporter:
         self._app.call_from_thread(self._app.post_message, DiffReady(old_code, new_code))
 
     def on_generating_start(self, iteration: int, max_iter: int) -> None:
-        self._app.call_from_thread(
-            self._app.post_message, GeneratingStarted(iteration, max_iter)
-        )
+        self._app.call_from_thread(self._app.post_message, GeneratingStarted(iteration, max_iter))
 
     def on_generating_done(self) -> None:
         self._app.call_from_thread(self._app.post_message, GeneratingDone())
@@ -241,7 +254,9 @@ class TuiGateProvider:
         self._app.call_from_thread(self._app.post_message, msg)
         return msg.wait()
 
-    def write_gate(self, path: str, yes: bool, always_write: bool = False, content: str = "") -> tuple[bool, bool]:
+    def write_gate(
+        self, path: str, yes: bool, always_write: bool = False, content: str = ""
+    ) -> tuple[bool, bool]:
         if yes or always_write or self._app._always_write:
             return True, True
         msg = WriteGateRequest(path)
@@ -330,7 +345,13 @@ class GateBar(Widget):
                 f"  iteration {self._iteration + 1}/{self._max_iter}   ",
                 style=MUTED,
             )
-            for key, label in [("y", "run"), ("n", "skip"), ("e", "edit"), ("v", "view"), ("a", "always")]:
+            for key, label in [
+                ("y", "run"),
+                ("n", "skip"),
+                ("e", "edit"),
+                ("v", "view"),
+                ("a", "always"),
+            ]:
                 t.append(f"[{key}]", style=f"bold {AMBER}")
                 t.append(f" {label}  ", style=MUTED)
 
@@ -434,6 +455,7 @@ class ScripyApp(App):
         self._preview_code: str = ""
         self._preview_lang: str = lang or cfg.default_lang
         self._picker_from_input: bool = False
+        self.code_theme = get_code_theme(cfg.code_theme)
 
     def _header_markup(self) -> str:
         lang = self.lang or self.cfg.default_lang
@@ -515,13 +537,13 @@ class ScripyApp(App):
                 Syntax(
                     msg.code,
                     msg.lang,
-                    theme=CODE_THEME,
+                    theme=self.code_theme,
                     line_numbers=bool(changed),
                     highlight_lines=changed or None,
                 )
             )
         else:
-            pane.update(Syntax(msg.code, msg.lang, theme=CODE_THEME, line_numbers=False))
+            pane.update(Syntax(msg.code, msg.lang, theme=self.code_theme, line_numbers=False))
 
     def on_diff_ready(self, msg: DiffReady) -> None:
         lines = list(
@@ -534,7 +556,7 @@ class ScripyApp(App):
         )
         if lines:
             log = self.query_one("#log-pane", RichLog)
-            log.write(Syntax("".join(lines), "diff", theme=CODE_THEME))
+            log.write(Syntax("".join(lines), "diff", theme=self.code_theme))
 
     def on_generating_started(self, msg: GeneratingStarted) -> None:
         self.query_one(GateBar).show_generating(msg.iteration, msg.max_iter)
@@ -637,7 +659,12 @@ class ScripyApp(App):
                         iterations=self._result.iterations,
                     )
                     self.query_one("#script-pane", Static).update(
-                        Syntax(new_code, self.lang or "python", theme=CODE_THEME, line_numbers=False)
+                        Syntax(
+                            new_code,
+                            self.lang or "python",
+                            theme=self.code_theme,
+                            line_numbers=False,
+                        )
                     )
                     event.stop()
             return
@@ -652,7 +679,7 @@ class ScripyApp(App):
             elif key == "v":
                 # Script pane already shows the code — echo to log for clarity
                 log = self.query_one("#log-pane", RichLog)
-                log.write(Syntax(gate.code, self.lang or "python", theme=CODE_THEME))
+                log.write(Syntax(gate.code, self.lang or "python", theme=self.code_theme))
             elif key == "e":
                 log = self.query_one("#log-pane", RichLog)
                 log.write(
@@ -703,9 +730,7 @@ class ScripyApp(App):
                 picker._other_mode = True
                 picker.refresh()
             else:
-                self.post_message(LangSelected(lang_id))
-        elif key == "escape":
-            self.post_message(LangSelected(None))
+                self.post_message(LangSelected(None))
 
     def _show_lang_picker(self, from_input: bool = False) -> None:
         self._picker_from_input = from_input
@@ -715,7 +740,7 @@ class ScripyApp(App):
         if from_input:
             self.query_one("#refine-input", Input).display = False
         else:
-            self.query_one(GateBar).display = False
+            self.query_one(GateBar).display = True
 
     def on_lang_selected(self, msg: LangSelected) -> None:
         self.query_one(LangPicker).display = False
@@ -743,7 +768,7 @@ class ScripyApp(App):
         )
         if self._preview_code:
             self.query_one("#script-pane", Static).update(
-                Syntax(self._preview_code, lang, theme=CODE_THEME, line_numbers=False)
+                Syntax(self._preview_code, lang, theme=self.code_theme, line_numbers=False)
             )
 
     def _start_compose(self) -> None:

@@ -9,7 +9,7 @@ from rich.live import Live
 from rich.syntax import Syntax
 from rich.text import Text
 
-from scripy.theme import AMBER, CODE_THEME, MUTED, SPINNER_FRAMES, WORKING
+from scripy.theme import AMBER, MUTED, SPINNER_FRAMES, WORKING, get_code_theme
 
 
 class Reporter(Protocol):
@@ -24,8 +24,9 @@ class Reporter(Protocol):
 class RichReporter:
     """Headless reporter — outputs to the terminal via Rich."""
 
-    def __init__(self) -> None:
+    def __init__(self, theme: str | None = None) -> None:
         self.console = Console()
+        self.theme = theme or "dracula"
         self._stop: threading.Event | None = None
         self._thread: threading.Thread | None = None
 
@@ -33,7 +34,7 @@ class RichReporter:
         self.console.print(f"  [{color}]{glyph}[/{color}] [{MUTED}]{message}[/{MUTED}]")
 
     def print_code(self, code: str, lang: str) -> None:
-        self.console.print(Syntax(code, lang, theme=CODE_THEME))
+        self.console.print(Syntax(code, lang, theme=self.theme))
 
     def update_script(self, code: str, lang: str) -> None:
         pass  # no-op in headless
@@ -48,7 +49,7 @@ class RichReporter:
             )
         )
         if lines:
-            self.console.print(Syntax("".join(lines), "diff", theme=CODE_THEME))
+            self.console.print(Syntax("".join(lines), "diff", theme=self.theme))
 
     def on_generating_start(self, iteration: int, max_iter: int) -> None:
         iter_label = f" (iteration {iteration + 1}/{max_iter})" if iteration > 0 else ""

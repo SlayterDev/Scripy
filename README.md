@@ -93,6 +93,9 @@ Default config works with a local Ollama instance. Override via `~/.config/scrip
   max_iterations   = 3
   default_lang     = "python"
   sandbox_timeout  = 10
+
+[theme]
+  code_theme       = "dracula"
 ```
 
 CLI flags override config for a single run:
